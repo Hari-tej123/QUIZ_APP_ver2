@@ -218,6 +218,7 @@ export const EmptyState = ({
 export const Input = ({
   label,
   error,
+  helperText,
   type = 'text',
   value,
   onChange,
@@ -246,7 +247,11 @@ export const Input = ({
         }`}
         {...props}
       />
-      {error && <span className="text-xs text-danger-500 font-medium">{error}</span>}
+      {error ? (
+        <span className="text-xs text-danger-500 font-medium">{error}</span>
+      ) : helperText ? (
+        <span className="text-[11px] text-neutral-400 font-medium">{helperText}</span>
+      ) : null}
     </div>
   );
 };
@@ -294,6 +299,7 @@ export const Select = ({
 export const Textarea = ({
   label,
   error,
+  helperText,
   value,
   onChange,
   placeholder,
@@ -322,7 +328,11 @@ export const Textarea = ({
         }`}
         {...props}
       />
-      {error && <span className="text-xs text-danger-500 font-medium">{error}</span>}
+      {error ? (
+        <span className="text-xs text-danger-500 font-medium">{error}</span>
+      ) : helperText ? (
+        <span className="text-[11px] text-neutral-400 font-medium">{helperText}</span>
+      ) : null}
     </div>
   );
 };

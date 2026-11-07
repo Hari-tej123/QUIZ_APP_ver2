@@ -48,6 +48,10 @@ module.exports = (sequelize) => {
       defaultValue: 'mock',
       allowNull: false
     },
+    questionOrder: {
+      type: DataTypes.JSONB,
+      allowNull: true
+    },
     timeSpentSeconds: {
       type: DataTypes.INTEGER,
       defaultValue: 0,

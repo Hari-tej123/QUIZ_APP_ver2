@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import {
   FileQuestion,
@@ -19,11 +20,17 @@ import {
   Lightbulb
 } from 'lucide-react';
 import { Button, Card, Input, Badge, Modal } from '../../components/UI';
-import api from '../../utils/api';
+import api, { BASE_URL } from '../../utils/api';
 
 export default function CreateQuiz() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const editingQuizId = searchParams.get('edit');
   const { showSuccess, showError, showWarning } = useToast();
+  const { user } = useAuth();
+
+  const isFaculty = user?.role === 'ADMIN' || user?.educatorType === 'COLLEGE' || user?.educatorType === 'BOTH' || Boolean(user?.instituteId);
+  const isCompetitiveOnly = user?.role === 'EDUCATOR' && user?.educatorType === 'COMPETITIVE' && !user?.instituteId;
 
   const [loading, setLoading] = useState(false);
   const [hierarchyLoading, setHierarchyLoading] = useState(true);
@@ -33,7 +40,7 @@ export default function CreateQuiz() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [duration, setDuration] = useState(15);
-  const [trackType, setTrackType] = useState('competitive'); // 'competitive' | 'college'
+  const [trackType, setTrackType] = useState(isCompetitiveOnly ? 'competitive' : (user?.educatorType === 'COLLEGE' ? 'college' : 'competitive')); // 'competitive' | 'college'
 
   // Competitive Track Selection
   const [selectedExamId, setSelectedExamId] = useState('');
@@ -65,6 +72,12 @@ export default function CreateQuiz() {
     marks: 1
   });
 
+  // New Topic Creation Modal State
+  const [showNewTopicModal, setShowNewTopicModal] = useState(false);
+  const [newTopicName, setNewTopicName] = useState('');
+  const [newTopicDesc, setNewTopicDesc] = useState('');
+  const [creatingTopic, setCreatingTopic] = useState(false);
+
   // Bulk Upload State
   const [uploadFile, setUploadFile] = useState(null);
   const [bulkErrors, setBulkErrors] = useState([]);
@@ -73,6 +86,26 @@ export default function CreateQuiz() {
   useEffect(() => {
     fetchHierarchy();
   }, []);
+
+  useEffect(() => {
+    if (!editingQuizId || hierarchyLoading) return;
+    api.get('/contributor/quizzes').then(response => {
+      const quizzes = response?.data?.data || response?.data || [];
+      const quiz = quizzes.find(item => item.id === editingQuizId);
+      if (!quiz) return showError('That quiz is not available in your workspace.');
+      setTitle(quiz.title || '');
+      setDescription(quiz.description || '');
+      setDuration(quiz.durationMin || quiz.duration || 15);
+      setTrackType(quiz.trackType || (quiz.courseId ? 'college' : 'competitive'));
+      setSelectedExamId(quiz.examEdition?.examId || '');
+      setSelectedEditionId(quiz.examEditionId || '');
+      setSelectedSubjectId(quiz.examSubjectId || '');
+      setSelectedTopicId(quiz.examTopicId || '');
+      setSelectedCourseId(quiz.courseId || '');
+      setSelectedSubtopicId(quiz.subtopicId || '');
+      setQuestions((quiz.questions || []).map(question => ({ ...question, id: question.id || Date.now() + Math.random() })));
+    }).catch(error => showError(error.message || 'Could not load this draft for editing.'));
+  }, [editingQuizId, hierarchyLoading, showError]);
 
   const fetchHierarchy = async () => {
     try {
@@ -111,6 +144,37 @@ export default function CreateQuiz() {
       showError('Failed to load track hierarchy');
     } finally {
       setHierarchyLoading(false);
+    }
+  };
+
+  const handleCreateNewTopic = async (e) => {
+    e.preventDefault();
+    if (!newTopicName.trim()) {
+      return showError('Please enter a topic name.');
+    }
+    if (!selectedSubjectId) {
+      return showError('Please select a subject first.');
+    }
+
+    setCreatingTopic(true);
+    try {
+      const res = await api.post(`/subjects/${selectedSubjectId}/topics`, {
+        name: newTopicName.trim(),
+        description: newTopicDesc.trim() || undefined
+      });
+      const created = res.data?.data || res.data || res;
+      showSuccess(`Topic "${created.name}" created!`);
+
+      // Refresh hierarchy
+      await fetchHierarchy();
+      setSelectedTopicId(created.id);
+      setNewTopicName('');
+      setNewTopicDesc('');
+      setShowNewTopicModal(false);
+    } catch (err) {
+      showError(err.response?.data?.message || err.message || 'Failed to create topic.');
+    } finally {
+      setCreatingTopic(false);
     }
   };
 
@@ -166,10 +230,8 @@ export default function CreateQuiz() {
     setBulkParsing(true);
     setBulkErrors([]);
     try {
-      const res = await api.post('/contributor/quizzes/bulk-upload', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
-      const resultData = res?.data || res || {};
+      const res = await api.post('/contributor/quizzes/bulk-upload', formData);
+      const resultData = res?.data?.data || res?.data || res || {};
       const parsed = resultData.questions || [];
       const errors = resultData.errors || [];
 
@@ -195,38 +257,68 @@ export default function CreateQuiz() {
 
   // Download Sample Template
   const handleDownloadTemplate = () => {
-    window.open(`${api.defaults.baseURL}/contributor/quizzes/template`, '_blank');
+    window.open(`${BASE_URL}/contributor/quizzes/template`, '_blank', 'noopener,noreferrer');
   };
 
   // Submit Final Quiz
-  const handleSubmitQuiz = async () => {
+  const handleSubmitQuiz = async (submitForReview = false) => {
     if (!title) {
       return showError('Please enter a quiz title.');
     }
+    if (title.trim().length < 3) {
+      return showError('Title must be at least 3 characters.');
+    }
     if (questions.length === 0) {
       return showError('Please add at least one question before submitting.');
+    }
+    if (trackType === 'college' && !selectedCourseId) {
+      return showError('Course is required for College track quizzes.');
+    }
+    if (parseInt(duration, 10) < 1 || parseInt(duration, 10) > 600) {
+      return showError('Duration must be between 1 and 600 minutes.');
     }
 
     setLoading(true);
     try {
       const payload = {
-        title,
-        description,
+        title: title.trim(),
+        description: description?.trim() || null,
         duration: parseInt(duration, 10) || 15,
         trackType,
-        examEditionId: trackType === 'competitive' ? selectedEditionId : null,
-        examSubjectId: trackType === 'competitive' ? selectedSubjectId : null,
-        examTopicId: trackType === 'competitive' ? selectedTopicId : null,
-        courseId: trackType === 'college' ? selectedCourseId : null,
-        subtopicId: trackType === 'college' ? selectedSubtopicId : null,
-        questions
+        track: trackType === 'college' ? 'COLLEGE' : 'COMPETITIVE',
+        examId: trackType === 'competitive' ? (selectedExamId || null) : null,
+        examEditionId: trackType === 'competitive' ? (selectedEditionId || null) : null,
+        examSubjectId: trackType === 'competitive' ? (selectedSubjectId || null) : null,
+        examTopicId: trackType === 'competitive' ? (selectedTopicId || null) : null,
+        courseId: trackType === 'college' ? (selectedCourseId || null) : null,
+        subtopicId: trackType === 'college' ? (selectedSubtopicId || null) : null,
+        questions: questions.map(({ id, ...q }) => ({
+          ...q,
+          tags: q.tags || null,
+          explanation: q.explanation || null
+        }))
       };
 
-      const res = await api.post('/contributor/quizzes', payload);
-      showSuccess(res.data.message || 'Quiz submitted successfully for Admin review!');
-      navigate('/contributor/submissions');
+      const res = editingQuizId
+        ? await api.put(`/contributor/quizzes/${editingQuizId}`, payload)
+        : await api.post('/contributor/quizzes', payload);
+      const quiz = res?.data?.quiz || res?.data?.data?.quiz || res?.quiz || { id: editingQuizId };
+      if (submitForReview && quiz?.id) {
+        await api.post(`/contributor/quizzes/${quiz.id}/submit`);
+        showSuccess('Quiz submitted for admin review.');
+        navigate('/contributor/submissions');
+      } else {
+        showSuccess('Quiz saved as a draft.');
+        navigate('/contributor/quizzes');
+      }
     } catch (err) {
-      showError(err.response?.data?.message || 'Failed to submit quiz.');
+      const responseData = err.response?.data;
+      if (responseData?.errors && Array.isArray(responseData.errors) && responseData.errors.length > 0) {
+        const errorMessages = responseData.errors.map(e => `${e.field ? `${e.field}: ` : ''}${e.message}`);
+        showError(`Validation failed: ${errorMessages.slice(0, 3).join('; ')}`);
+      } else {
+        showError(responseData?.message || 'Failed to submit quiz.');
+      }
     } finally {
       setLoading(false);
     }
@@ -255,16 +347,9 @@ export default function CreateQuiz() {
         </div>
 
         <div className="flex items-center gap-3">
-          <Button
-            variant="primary"
-            size="md"
-            onClick={handleSubmitQuiz}
-            isLoading={loading}
-            disabled={questions.length === 0}
-            className="shadow-md shadow-primary-900/20 font-bold"
-          >
-            <CheckCircle2 className="w-4.5 h-4.5 mr-2" />
-            Submit for Review ({questions.length} Qs)
+            <Button variant="secondary" size="md" onClick={() => handleSubmitQuiz(false)} isLoading={loading} disabled={questions.length === 0} className="font-bold">Save Draft</Button>
+            <Button variant="primary" size="md" onClick={() => handleSubmitQuiz(true)} isLoading={loading} disabled={questions.length === 0} className="shadow-md shadow-primary-900/20 font-bold">
+            <CheckCircle2 className="w-4.5 h-4.5 mr-2" /> Submit for Review ({questions.length} Qs)
           </Button>
         </div>
       </div>
@@ -283,30 +368,36 @@ export default function CreateQuiz() {
           </div>
 
           {/* Track Switcher */}
-          <div className="flex items-center bg-neutral-100 p-1 rounded-xl border border-neutral-200">
-            <button
-              type="button"
-              onClick={() => setTrackType('competitive')}
-              className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                trackType === 'competitive'
-                  ? 'bg-white text-primary-700 shadow-xs'
-                  : 'text-neutral-500 hover:text-neutral-800'
-              }`}
-            >
-              🎯 Competitive Exams
-            </button>
-            <button
-              type="button"
-              onClick={() => setTrackType('college')}
-              className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                trackType === 'college'
-                  ? 'bg-white text-amber-800 shadow-xs'
-                  : 'text-neutral-500 hover:text-neutral-800'
-              }`}
-            >
-              🏛️ College Courses
-            </button>
-          </div>
+          {!isCompetitiveOnly ? (
+            <div className="flex items-center bg-neutral-100 p-1 rounded-xl border border-neutral-200">
+              <button
+                type="button"
+                onClick={() => setTrackType('competitive')}
+                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  trackType === 'competitive'
+                    ? 'bg-white text-primary-700 shadow-xs'
+                    : 'text-neutral-500 hover:text-neutral-800'
+                }`}
+              >
+                🎯 Competitive Exams
+              </button>
+              <button
+                type="button"
+                onClick={() => setTrackType('college')}
+                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  trackType === 'college'
+                    ? 'bg-white text-amber-800 shadow-xs'
+                    : 'text-neutral-500 hover:text-neutral-800'
+                }`}
+              >
+                🏛️ College Courses
+              </button>
+            </div>
+          ) : (
+            <Badge variant="primary" className="px-3 py-1 text-xs font-bold">
+              🎯 Competitive Track Only
+            </Badge>
+          )}
         </div>
 
         {trackType === 'competitive' ? (
@@ -378,7 +469,16 @@ export default function CreateQuiz() {
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-neutral-700 mb-1.5">Topic</label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-bold text-neutral-700">Topic</label>
+                <button
+                  type="button"
+                  onClick={() => setShowNewTopicModal(true)}
+                  className="text-[11px] font-bold text-primary-600 hover:text-primary-700 cursor-pointer flex items-center gap-1"
+                >
+                  <PlusCircle className="w-3 h-3" /> New Topic
+                </button>
+              </div>
               <select
                 value={selectedTopicId}
                 onChange={(e) => setSelectedTopicId(e.target.value)}
@@ -764,6 +864,43 @@ export default function CreateQuiz() {
           </div>
         )}
       </Card>
+
+      {/* Modal for creating a new Topic inline */}
+      <Modal
+        isOpen={showNewTopicModal}
+        onClose={() => setShowNewTopicModal(false)}
+        title="Create New Syllabus Topic"
+      >
+        <form onSubmit={handleCreateNewTopic} className="space-y-4">
+          <div className="space-y-1">
+            <label className="text-xs font-bold text-neutral-700">Topic Name <span className="text-rose-500">*</span></label>
+            <Input
+              placeholder="e.g. Graph Theory & Shortest Path"
+              value={newTopicName}
+              onChange={(e) => setNewTopicName(e.target.value)}
+              required
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-bold text-neutral-700">Description / Scope (Optional)</label>
+            <textarea
+              rows="2"
+              className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-300 text-xs font-medium focus:ring-2 focus:ring-primary-500 outline-none"
+              placeholder="Topics covered, syllabus reference..."
+              value={newTopicDesc}
+              onChange={(e) => setNewTopicDesc(e.target.value)}
+            />
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="secondary" size="sm" onClick={() => setShowNewTopicModal(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" variant="primary" size="sm" isLoading={creatingTopic} className="font-bold">
+              <PlusCircle className="w-3.5 h-3.5 mr-1" /> Create Topic
+            </Button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }

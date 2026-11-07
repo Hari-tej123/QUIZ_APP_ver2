@@ -13,51 +13,42 @@ export const useAuth = () => {
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-  const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const logout = useCallback(() => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    setToken(null);
+  const logout = useCallback(async () => {
+    await apiClient.post('/auth/logout').catch(() => {});
     setUser(null);
   }, []);
 
-  // Hydrate state from localStorage on load
   useEffect(() => {
-    const storedToken = localStorage.getItem('token');
-    const storedUser = localStorage.getItem('user');
-
-    if (storedToken && storedUser) {
-      setToken(storedToken);
-      try {
-        setUser(JSON.parse(storedUser));
-      } catch (e) {
-        logout();
-      }
-    }
-    setLoading(false);
-
-    // Global listener for API 401 logouts
+    let active = true;
     const handleGlobalLogout = () => {
-      logout();
+      if (active) setUser(null);
     };
     window.addEventListener('auth-logout', handleGlobalLogout);
+    const hasSessionMarker = document.cookie.split('; ').some(cookie => cookie.startsWith('csrfToken='));
+    if (!hasSessionMarker) {
+      setLoading(false);
+      return () => {
+        active = false;
+        window.removeEventListener('auth-logout', handleGlobalLogout);
+      };
+    }
+    apiClient.get('/auth/me')
+      .then(response => { if (active) setUser(response.user); })
+      .catch(() => { if (active) setUser(null); })
+      .finally(() => { if (active) setLoading(false); });
     return () => {
+      active = false;
       window.removeEventListener('auth-logout', handleGlobalLogout);
     };
-  }, [logout]);
+  }, []);
 
   const login = async (email, password) => {
     setLoading(true);
     try {
       const response = await apiClient.post('/auth/login', { email, password });
-      
-      const { token: receivedToken, user: receivedUser } = response;
-      localStorage.setItem('token', receivedToken);
-      localStorage.setItem('user', JSON.stringify(receivedUser));
-      
-      setToken(receivedToken);
+      const { user: receivedUser } = response;
       setUser(receivedUser);
       setLoading(false);
       return receivedUser;
@@ -67,16 +58,11 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const register = async (name, email, password, rollNumber) => {
+  const register = async (details) => {
     setLoading(true);
     try {
-      const response = await apiClient.post('/auth/register', { name, email, password, rollNumber });
-      
-      const { token: receivedToken, user: receivedUser } = response;
-      localStorage.setItem('token', receivedToken);
-      localStorage.setItem('user', JSON.stringify(receivedUser));
-      
-      setToken(receivedToken);
+      const response = await apiClient.post('/auth/register', details);
+      const { user: receivedUser } = response;
       setUser(receivedUser);
       setLoading(false);
       return receivedUser;
@@ -93,7 +79,6 @@ export const AuthProvider = ({ children }) => {
       // If user had to change password on first login, update user state
       if (user?.mustChangePassword) {
         const updatedUser = { ...user, mustChangePassword: false };
-        localStorage.setItem('user', JSON.stringify(updatedUser));
         setUser(updatedUser);
       }
     } catch (error) {
@@ -103,9 +88,8 @@ export const AuthProvider = ({ children }) => {
 
   const value = {
     user,
-    token,
     loading,
-    isAuthenticated: !!token,
+    isAuthenticated: !!user,
     login,
     register,
     logout,

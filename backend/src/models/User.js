@@ -24,11 +24,32 @@ module.exports = (sequelize) => {
     },
     password: {
       type: DataTypes.STRING,
-      allowNull: false
+      allowNull: true
     },
     role: {
-      type: DataTypes.ENUM('admin', 'faculty', 'student', 'contributor'),
-      allowNull: false
+      type: DataTypes.STRING(20),
+      allowNull: false,
+      defaultValue: 'STUDENT',
+      validate: { isIn: [['STUDENT', 'EDUCATOR', 'ADMIN']] }
+    },
+    educatorType: {
+      type: DataTypes.STRING(20),
+      allowNull: true,
+      validate: { isIn: [['COMPETITIVE', 'COLLEGE', 'BOTH']] }
+    },
+    instituteId: {
+      type: DataTypes.STRING(100),
+      allowNull: true
+    },
+    googleId: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      unique: true
+    },
+    emailVerified: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false
     },
     // Contributor & Educator specific
     contributorStatus: {

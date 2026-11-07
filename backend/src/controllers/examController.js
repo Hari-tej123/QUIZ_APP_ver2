@@ -1,7 +1,8 @@
 const {
-  Exam, ExamEdition, ExamSubject, ExamTopic, Quiz, Question, User, sequelize
+  Exam, ExamEdition, ExamSubject, ExamTopic, Quiz, Question, User, UserExamPreference, sequelize
 } = require('../config/database');
-const { BadRequestError, NotFoundError, ConflictError } = require('../utils/errors');
+const { BadRequestError, NotFoundError, ConflictError, ForbiddenError } = require('../utils/errors');
+const { Op } = require('sequelize');
 
 // ═══════════════════════════════════════════════════════════════════════════
 // EXAMS
@@ -9,17 +10,73 @@ const { BadRequestError, NotFoundError, ConflictError } = require('../utils/erro
 
 exports.listExams = async (req, res, next) => {
   try {
+    const isStudent = req.user?.role === 'STUDENT';
+    // Always include active exams in catalog; empty exams show with 0 published quizzes
+    const showEmptyExams = process.env.SHOW_EXAMS_WITHOUT_PUBLISHED_QUIZZES !== 'false' || true;
+    const where = { status: 'active' };
+
+    // If query parameter filter=registered is set or if student requests registered only
+    if (isStudent && req.query.registeredOnly === 'true') {
+      const userPrefs = await UserExamPreference.findAll({
+        where: { userId: req.user.id },
+        attributes: ['examId']
+      });
+      const registeredExamIds = userPrefs.map(p => p.examId);
+      where.id = { [Op.in]: registeredExamIds.length > 0 ? registeredExamIds : ['00000000-0000-0000-0000-000000000000'] };
+    }
+
+    if (['COMPETITIVE', 'COLLEGE'].includes(String(req.query.track || '').toUpperCase())) {
+      where.track = String(req.query.track).toUpperCase();
+    }
+    if (['ENGINEERING', 'CIVIL_SERVICES', 'MANAGEMENT', 'MEDICAL', 'OTHER'].includes(String(req.query.category || '').toUpperCase())) {
+      where.category = String(req.query.category).toUpperCase();
+    }
+    if (req.query.search) {
+      const search = `%${String(req.query.search).trim().slice(0, 100)}%`;
+      where[Op.or] = [{ name: { [Op.iLike]: search } }, { code: { [Op.iLike]: search } }];
+    }
     const exams = await Exam.findAll({
-      include: [{ model: ExamEdition, as: 'editions', attributes: ['id', 'year', 'is_active'] }],
+      where,
+      include: [{
+        model: ExamEdition,
+        as: 'editions',
+        attributes: ['id', 'year', 'is_active'],
+        required: !showEmptyExams,
+        include: [{
+          model: ExamSubject,
+          as: 'subjects',
+          required: !showEmptyExams,
+          include: [{
+            model: ExamTopic,
+            as: 'topics',
+            required: !showEmptyExams,
+            include: [{
+              model: Quiz,
+              as: 'quizzes',
+              where: { status: 'PUBLISHED', isPublished: true },
+              required: !showEmptyExams,
+              attributes: ['id']
+            }]
+          }]
+        }]
+      }],
+      distinct: true,
       order: [['createdAt', 'DESC']]
     });
-    res.status(200).json({ status: 'success', results: exams.length, data: exams });
+    const data = exams.map(exam => {
+      const item = exam.get({ plain: true });
+      item.publishedQuizCount = (item.editions || []).reduce((editionTotal, edition) => editionTotal +
+        (edition.subjects || []).reduce((subjectTotal, subject) => subjectTotal +
+          (subject.topics || []).reduce((topicTotal, topic) => topicTotal + (topic.quizzes || []).length, 0), 0), 0);
+      return item;
+    });
+    res.status(200).json({ status: 'success', results: data.length, data });
   } catch (err) { next(err); }
 };
 
 exports.createExam = async (req, res, next) => {
   try {
-    const { name, code, description, logo_url, status } = req.body;
+    const { name, code, description, logo_url, status, category, track } = req.body;
     if (!name || !code) return next(new BadRequestError('Exam name and code are required.'));
 
     const existing = await Exam.findOne({ where: { code: code.toUpperCase() } });
@@ -30,7 +87,9 @@ exports.createExam = async (req, res, next) => {
       code: code.toUpperCase(),
       description,
       logo_url: logo_url || null,
-      status: status || 'active'
+      status: status || 'active',
+      category: category || 'ENGINEERING',
+      track: track || 'COMPETITIVE'
     });
     res.status(201).json({ status: 'success', data: exam });
   } catch (err) { next(err); }
@@ -39,7 +98,7 @@ exports.createExam = async (req, res, next) => {
 exports.updateExam = async (req, res, next) => {
   try {
     const { examId } = req.params;
-    const { name, description, logo_url, status } = req.body;
+    const { name, description, logo_url, status, category, track } = req.body;
 
     const exam = await Exam.findByPk(examId);
     if (!exam) return next(new NotFoundError('Exam not found.'));
@@ -48,6 +107,8 @@ exports.updateExam = async (req, res, next) => {
     if (description !== undefined) exam.description = description;
     if (logo_url !== undefined) exam.logo_url = logo_url;
     if (status) exam.status = status;
+    if (category) exam.category = category;
+    if (track) exam.track = track;
 
     await exam.save();
     res.status(200).json({ status: 'success', data: exam });
@@ -265,13 +326,37 @@ exports.deleteTopic = async (req, res, next) => {
 exports.listQuizzesByTopic = async (req, res, next) => {
   try {
     const { topicId } = req.params;
-    const topic = await ExamTopic.findByPk(topicId);
+    const topic = await ExamTopic.findByPk(topicId, {
+      include: [{
+        model: ExamSubject,
+        as: 'subject',
+        include: [{
+          model: ExamEdition,
+          as: 'edition',
+          include: [{ model: Exam, as: 'exam' }]
+        }]
+      }]
+    });
     if (!topic) return next(new NotFoundError('Topic not found.'));
 
+    // If user is a student, enforce that student MUST be registered for this exam!
+    if (req.user?.role === 'STUDENT') {
+      const examId = topic.subject?.edition?.exam?.id;
+      if (examId) {
+        const isRegistered = await UserExamPreference.findOne({
+          where: { userId: req.user.id, examId }
+        });
+        if (!isRegistered) {
+          return next(new ForbiddenError('You are not registered for this competitive exam. Please register in your preferences to access its quizzes.'));
+        }
+      }
+    }
+
     const quizzes = await Quiz.findAll({
-      where: { examTopicId: topicId },
+      where: { examTopicId: topicId, status: 'PUBLISHED', isPublished: true },
       include: [
-        { model: Question, as: 'questions', attributes: ['id', 'marks'] }
+        { model: Question, as: 'questions', attributes: ['id', 'marks', 'difficulty'] },
+        { model: User, as: 'author', attributes: ['id', 'name'] }
       ],
       order: [['createdAt', 'DESC']]
     });
@@ -283,7 +368,9 @@ exports.listQuizzesByTopic = async (req, res, next) => {
       duration: q.duration,
       maxAttempts: q.maxAttempts,
       questionCount: q.questions.length,
-      totalMarks: q.questions.reduce((sum, qn) => sum + (qn.marks || 0), 0)
+      totalMarks: q.questions.reduce((sum, qn) => sum + (qn.marks || 0), 0),
+      difficulty: q.questions[0]?.difficulty || 'medium',
+      educatorName: q.author?.name || 'Quizzify Educator'
     }));
 
     res.status(200).json({ status: 'success', results: mapped.length, data: mapped });

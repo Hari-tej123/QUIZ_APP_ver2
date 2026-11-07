@@ -7,6 +7,30 @@ module.exports = (sequelize) => {
       defaultValue: DataTypes.UUIDV4,
       primaryKey: true
     },
+    // ── Track & Institute Support ──
+    track: {
+      type: DataTypes.STRING(20),
+      allowNull: false,
+      defaultValue: 'COMPETITIVE',
+      validate: { isIn: [['COMPETITIVE', 'COLLEGE']] }
+    },
+    trackType: {
+      type: DataTypes.VIRTUAL,
+      get() {
+        return (this.getDataValue('track') || 'COMPETITIVE').toLowerCase();
+      },
+      set(val) {
+        if (val) this.setDataValue('track', String(val).toUpperCase());
+      }
+    },
+    examId: {
+      type: DataTypes.UUID,
+      allowNull: true
+    },
+    instituteId: {
+      type: DataTypes.STRING(100),
+      allowNull: true
+    },
     // ── Course-centric FKs (nullable so quiz can also belong directly to exam hierarchy) ──
     courseId: {
       type: DataTypes.UUID,
@@ -33,6 +57,12 @@ module.exports = (sequelize) => {
       validate: {
         min: 1
       }
+    },
+    durationMin: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 15,
+      validate: { min: 1 }
     },
     maxAttempts: {
       type: DataTypes.INTEGER,
@@ -69,18 +99,36 @@ module.exports = (sequelize) => {
       allowNull: true,
       defaultValue: null
     },
+    ownerId: {
+      type: DataTypes.UUID,
+      allowNull: true,
+      defaultValue: null
+    },
     status: {
-      type: DataTypes.ENUM('draft', 'pending', 'approved', 'rejected', 'changes_requested'),
-      defaultValue: 'approved',
-      allowNull: false
+      type: DataTypes.STRING(30),
+      defaultValue: 'DRAFT',
+      allowNull: false,
+      validate: { isIn: [['DRAFT', 'PENDING_REVIEW', 'PUBLISHED', 'REJECTED', 'ARCHIVED']] }
     },
     isPublished: {
       type: DataTypes.BOOLEAN,
-      defaultValue: true,
+      defaultValue: false,
       allowNull: false
     },
     reviewNotes: {
       type: DataTypes.TEXT,
+      allowNull: true
+    },
+    rejectionReason: {
+      type: DataTypes.TEXT,
+      allowNull: true
+    },
+    publishedBy: {
+      type: DataTypes.UUID,
+      allowNull: true
+    },
+    publishedAt: {
+      type: DataTypes.DATE,
       allowNull: true
     },
     totalAttempts: {

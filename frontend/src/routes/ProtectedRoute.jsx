@@ -20,14 +20,16 @@ export default function ProtectedRoute({ children, allowedRoles }) {
     return <Navigate to="/login" replace />;
   }
 
-  if (allowedRoles && !allowedRoles.includes(user.role)) {
+  const canonicalRole = ({ STUDENT: 'student', EDUCATOR: 'educator', ADMIN: 'admin' })[user?.role] || user?.role;
+  if (allowedRoles && !allowedRoles.includes(canonicalRole)) {
     // If not authorized for this route, redirect to default dashboard by role
     const defaultDashboards = {
       admin: '/admin',
+      educator: '/questions',
       faculty: '/faculty',
       student: '/student'
     };
-    return <Navigate to={defaultDashboards[user.role] || '/login'} replace />;
+    return <Navigate to={defaultDashboards[canonicalRole] || '/login'} replace />;
   }
 
   return children;

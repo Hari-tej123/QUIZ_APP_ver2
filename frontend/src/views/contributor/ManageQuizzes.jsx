@@ -44,12 +44,19 @@ export default function ManageQuizzes() {
 
   const getStatusBadge = (status) => {
     switch (status) {
+      case 'PUBLISHED':
       case 'approved':
         return <Badge variant="success">Approved & Live</Badge>;
+      case 'PENDING_REVIEW':
       case 'pending':
         return <Badge variant="warning">Pending Review</Badge>;
+      case 'REJECTED':
       case 'rejected':
         return <Badge variant="danger">Rejected</Badge>;
+      case 'DRAFT':
+        return <Badge variant="neutral">Draft</Badge>;
+      case 'ARCHIVED':
+        return <Badge variant="neutral">Archived</Badge>;
       case 'changes_requested':
         return <Badge variant="warning">Changes Requested</Badge>;
       default:
@@ -147,6 +154,8 @@ export default function ManageQuizzes() {
                     <Eye className="w-3.5 h-3.5 mr-1" />
                     Preview Questions
                   </Button>
+                  {['DRAFT', 'REJECTED'].includes(quiz.status) && <Link to={`/contributor/quizzes/create?edit=${quiz.id}`}><Button variant="secondary" size="xs" className="ml-2">Edit & Resubmit</Button></Link>}
+                  {quiz.status === 'PUBLISHED' && <Button variant="secondary" size="xs" className="ml-2" onClick={async () => { try { await api.post(`/contributor/quizzes/${quiz.id}/archive`); await fetchQuizzes(); } catch { showError('Could not archive this quiz.'); } }}>Archive</Button>}
                 </div>
               </Card>
             );

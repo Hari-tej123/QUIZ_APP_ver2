@@ -7,6 +7,8 @@ const fs = require('fs');
 const contributorController = require('../controllers/contributorController');
 const authMiddleware = require('../middlewares/authMiddleware');
 const roleGuard = require('../middlewares/roleGuard');
+const { validateContributorTrack } = require('../middlewares/trackGuard');
+const quizWorkflowController = require('../controllers/quizWorkflowController');
 
 // Setup multer storage for materials and excel upload
 const uploadDir = path.join(__dirname, '../../uploads');
@@ -42,7 +44,10 @@ router.get('/hierarchy', contributorController.getHierarchyTree);
 
 // Quizzes management
 router.get('/quizzes', contributorController.getMyQuizzes);
-router.post('/quizzes', contributorController.createQuiz);
+router.post('/quizzes', validateContributorTrack, contributorController.createQuiz);
+router.put('/quizzes/:quizId', validateContributorTrack, quizWorkflowController.updateDraft);
+router.post('/quizzes/:quizId/submit', quizWorkflowController.submitForReview);
+router.post('/quizzes/:quizId/archive', quizWorkflowController.archive);
 router.post('/quizzes/bulk-upload', memoryUpload.single('file'), contributorController.bulkUploadQuestions);
 router.get('/quizzes/template', contributorController.getSampleTemplate);
 

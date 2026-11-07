@@ -201,11 +201,17 @@ export default function StudentDashboard() {
           </div>
 
           <div className="flex flex-wrap gap-2 pt-2">
-            {['GATE CS', 'JEE Advanced', 'UPSC Prelims', 'CAT Quant'].map((badge) => (
-              <span key={badge} className="px-3 py-1 rounded-xl bg-white border border-neutral-200 text-xs font-semibold text-neutral-700 shadow-xs">
-                {badge}
+            {targetExams.length > 0 ? (
+              targetExams.map((exam) => (
+                <span key={exam.id} className="px-3 py-1 rounded-xl bg-primary-100/70 border border-primary-200 text-xs font-bold text-primary-800 shadow-xs flex items-center gap-1">
+                  <Target className="w-3 h-3 text-primary-600" /> {exam.code || exam.name}
+                </span>
+              ))
+            ) : (
+              <span className="text-xs text-neutral-400">
+                No exams registered yet. Click below to choose your target exams!
               </span>
-            ))}
+            )}
           </div>
 
           <div className="pt-3 border-t border-neutral-100">

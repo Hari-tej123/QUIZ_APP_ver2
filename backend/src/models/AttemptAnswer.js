@@ -16,7 +16,7 @@ module.exports = (sequelize) => {
       allowNull: false
     },
     selectedOption: {
-      type: DataTypes.ENUM('A', 'B', 'C', 'D'),
+      type: DataTypes.STRING(500),
       allowNull: false
     },
     isCorrect: {

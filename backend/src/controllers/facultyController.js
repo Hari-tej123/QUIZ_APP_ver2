@@ -184,7 +184,13 @@ exports.bulkUploadQuestions = async (req, res, next) => {
     // Format questions with quizId
     const questionsToInsert = validationResult.questions.map(q => ({
       ...q,
-      quizId
+      quizId,
+      questionType: 'mcq',
+      options: [q.optionA, q.optionB, q.optionC, q.optionD],
+      correctAnswers: [q.correctOption],
+      track: quiz.examTopicId ? 'exam' : 'competitive',
+      status: 'published',
+      createdBy: req.user.id
     }));
 
     // Delete existing questions for this quiz if faculty uploads a new template (optional, let's keep it simple: append or replace? Let's clear and replace to ensure sync)

@@ -4,11 +4,16 @@ node_modules/
 # Environment files
 .env
 .env.*
+!.env.example
+!**/.env.example
 
 # Build files
 dist/
 build/
 dist-ssr/
+
+# Uploaded user content
+backend/uploads/
 
 # Logs
 *.log

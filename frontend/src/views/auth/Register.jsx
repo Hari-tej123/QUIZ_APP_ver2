@@ -1,27 +1,20 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
-import { useNavigate, Link } from 'react-router-dom';
-import { Input, Button, Badge } from '../../components/UI';
-import { Eye, EyeOff, GraduationCap, ArrowLeft, Sparkles, BookOpen, ShieldCheck } from 'lucide-react';
-import api from '../../utils/api';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
+import { Input, Button } from '../../components/UI';
+import { Eye, EyeOff, ArrowLeft } from 'lucide-react';
 
 export default function Register() {
   const { register } = useAuth();
   const { showSuccess, showError } = useToast();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
-  const [role, setRole] = useState('student'); // 'student' | 'contributor'
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [rollNumber, setRollNumber] = useState('');
-
-  // Contributor specific
-  const [subjectExpertise, setSubjectExpertise] = useState('');
-  const [credentials, setCredentials] = useState('');
-  const [bio, setBio] = useState('');
-  const [phone, setPhone] = useState('');
 
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -32,44 +25,15 @@ export default function Register() {
       return showError('Please fill in name, email, and password.');
     }
 
-    if (role === 'student' && !rollNumber) {
-      return showError('Please enter your roll number.');
-    }
-
-    if (role === 'contributor' && !subjectExpertise) {
-      return showError('Please enter your subject domain expertise.');
-    }
-
-    if (password.length < 6) {
-      return showError('Password must be at least 6 characters long.');
+    if (password.length < 8) {
+      return showError('Password must be at least 8 characters long.');
     }
 
     setLoading(true);
     try {
-      const res = await api.post('/auth/register', {
-        name,
-        email,
-        password,
-        role,
-        rollNumber: role === 'student' ? rollNumber : null,
-        subjectExpertise: role === 'contributor' ? subjectExpertise : null,
-        credentials: role === 'contributor' ? credentials : null,
-        bio: role === 'contributor' ? bio : null,
-        phone: role === 'contributor' ? phone : null
-      });
-
-      const data = res.data;
-      localStorage.setItem('quizapp_token', data.token);
-      localStorage.setItem('quizapp_user', JSON.stringify(data.user));
-
-      if (role === 'contributor') {
-        showSuccess('Educator application submitted! Welcome to Quizzify Creator Portal.');
-        navigate('/contributor');
-      } else {
-        showSuccess('Registration successful! Welcome to Quizzify.');
-        navigate('/student');
-      }
-      window.location.reload();
+      const newUser = await register({ name, email, password, rollNumber, inviteToken: searchParams.get('invite') || undefined });
+      showSuccess('Registration successful! Welcome to Quizzify.');
+      navigate(newUser.role === 'EDUCATOR' ? '/questions' : '/student');
     } catch (err) {
       showError(err.response?.data?.message || err.message || 'Registration failed. Email may already exist.');
     } finally {
@@ -92,40 +56,12 @@ export default function Register() {
       </div>
 
       <div className="max-w-lg w-full bg-white border border-neutral-200/90 rounded-3xl shadow-card p-8 animate-slide-up">
-        {/* Role Switcher */}
-        <div className="flex items-center bg-neutral-100 p-1.5 rounded-2xl mb-6 border border-neutral-200">
-          <button
-            type="button"
-            onClick={() => setRole('student')}
-            className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-              role === 'student'
-                ? 'bg-white text-primary-700 shadow-xs'
-                : 'text-neutral-500 hover:text-neutral-900'
-            }`}
-          >
-            <GraduationCap className="w-4 h-4" /> Student Account
-          </button>
-          <button
-            type="button"
-            onClick={() => setRole('contributor')}
-            className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-              role === 'contributor'
-                ? 'bg-gradient-to-r from-primary-600 to-indigo-600 text-white shadow-xs'
-                : 'text-neutral-500 hover:text-neutral-900'
-            }`}
-          >
-            <Sparkles className="w-4 h-4" /> Educator / Creator
-          </button>
-        </div>
-
         <div className="flex flex-col items-center text-center mb-6">
           <h1 className="text-2xl font-black text-neutral-900 tracking-tight font-display">
-            {role === 'student' ? 'Create Free Student Account' : 'Apply as Verified Educator'}
+            Create Free Student Account
           </h1>
           <p className="text-xs text-neutral-500 mt-1 font-medium">
-            {role === 'student'
-              ? 'Join 50,000+ students practicing mock tests & university courses'
-              : 'Create high-yield question sets, upload study materials, and earn bounties & revenue share'}
+            Join Quizzify to practice competitive exams and university courses
           </p>
         </div>
 
@@ -147,50 +83,12 @@ export default function Register() {
             required
           />
 
-          {role === 'student' ? (
-            <Input
-              label="Roll Number / Student ID"
-              placeholder="e.g. CS-2026-104"
-              value={rollNumber}
-              onChange={(e) => setRollNumber(e.target.value)}
-              required
-            />
-          ) : (
-            <>
-              <Input
-                label="Subject Domain Expertise"
-                placeholder="e.g. GATE CSE, Algorithms, JEE Physics"
-                value={subjectExpertise}
-                onChange={(e) => setSubjectExpertise(e.target.value)}
-                required
-              />
-
-              <Input
-                label="Credentials / Degrees & Experience"
-                placeholder="e.g. M.Tech (IIT KGP), 10+ Years Coaching"
-                value={credentials}
-                onChange={(e) => setCredentials(e.target.value)}
-              />
-
-              <div>
-                <label className="block text-xs font-bold text-neutral-700 mb-1">Bio / Profile Summary</label>
-                <textarea
-                  rows="2"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-300 text-xs font-medium focus:ring-2 focus:ring-primary-500 outline-none"
-                  placeholder="Tell students about your teaching experience..."
-                  value={bio}
-                  onChange={(e) => setBio(e.target.value)}
-                />
-              </div>
-
-              <Input
-                label="Phone Number (for Payout Verification)"
-                placeholder="e.g. +91 98765 43210"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-              />
-            </>
-          )}
+          <Input
+            label="Roll Number / Student ID (optional)"
+            placeholder="e.g. CS-2026-104"
+            value={rollNumber}
+            onChange={(e) => setRollNumber(e.target.value)}
+          />
 
           <div className="relative">
             <Input
@@ -212,7 +110,7 @@ export default function Register() {
           </div>
 
           <Button type="submit" variant="primary" size="md" className="w-full mt-2 font-bold shadow-indigo" isLoading={loading}>
-            {role === 'student' ? 'Create Free Student Account' : 'Submit Educator Application'}
+            Create Free Student Account
           </Button>
         </form>
 

@@ -10,8 +10,16 @@ class AppError extends Error {
 }
 
 class BadRequestError extends AppError {
-  constructor(message = 'Bad Request') {
+  constructor(message = 'Bad Request', errors = null) {
     super(message, 400);
+    if (errors) this.errors = errors;
+  }
+}
+
+class ValidationError extends AppError {
+  constructor(errors = [], message = 'Validation failed.') {
+    super(message, 400);
+    this.errors = errors; // [{ field, message }]
   }
 }
 
@@ -42,6 +50,7 @@ class ConflictError extends AppError {
 module.exports = {
   AppError,
   BadRequestError,
+  ValidationError,
   UnauthorizedError,
   ForbiddenError,
   NotFoundError,

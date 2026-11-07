@@ -28,18 +28,21 @@ import {
 export default function AdminDashboard() {
   const { showError } = useToast();
   const [stats, setStats] = useState(null);
+  const [accessCounts, setAccessCounts] = useState(null);
   const [leaderboard, setLeaderboard] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function fetchData() {
       try {
-        const [statsRes, leadRes] = await Promise.all([
+        const [statsRes, leadRes, accessRes] = await Promise.all([
           apiClient.get('/admin/stats'),
-          api.get('/admin/contributor-leaderboard')
+          api.get('/admin/contributor-leaderboard'),
+          apiClient.get('/admin/dashboard-counts')
         ]);
         setStats(statsRes.data);
         setLeaderboard(leadRes.data.data || []);
+        setAccessCounts(accessRes.data || null);
       } catch (err) {
         showError('Failed to fetch system stats.');
       } finally {
@@ -62,15 +65,16 @@ export default function AdminDashboard() {
   }
 
   const kpis = stats?.kpis || {};
+  const usersByRole = accessCounts?.usersByRole || {};
 
   const kpiConfig = [
-    { title: 'Educators & Contributors', value: kpis.totalContributors || 0, icon: <Sparkles className="w-5 h-5 text-amber-500" />, desc: `${kpis.approvedEducators || 0} verified educators`, accent: 'amber' },
-    { title: 'Pending Submissions', value: kpis.pendingSubmissions || 0, icon: <Clock className="w-5 h-5 text-rose-500" />, desc: 'Awaiting quality review', accent: 'rose', link: '/admin/review-queue' },
-    { title: 'Faculty Staff', value: kpis.totalFaculty || 0, icon: <Users className="w-5 h-5 text-indigo-500" />, desc: 'Registered lecturers' },
-    { title: 'Active Students', value: kpis.totalStudents || 0, icon: <GraduationCap className="w-5 h-5 text-primary-500" />, desc: 'Enrolled students' },
-    { title: 'Total Courses', value: kpis.totalCourses || 0, icon: <BookOpen className="w-5 h-5 text-emerald-500" />, desc: 'Curriculum subjects' },
-    { title: 'Assessments', value: kpis.totalQuizzes || 0, icon: <ClipboardCheck className="w-5 h-5 text-violet-500" />, desc: 'Question bank sets' },
-    { title: 'Attempts Volume', value: kpis.totalAttempts || 0, icon: <Award className="w-5 h-5 text-teal-500" />, desc: `Avg score: ${kpis.averageScore || '0'}%` }
+    { title: 'Students', value: usersByRole.STUDENT ?? kpis.totalStudents ?? 0, icon: <GraduationCap className="w-5 h-5 text-primary-500" />, desc: 'Registered student learners', accent: 'primary', link: '/admin/access' },
+    { title: 'Educators', value: usersByRole.EDUCATOR ?? kpis.totalContributors ?? 0, icon: <Sparkles className="w-5 h-5 text-amber-500" />, desc: `${accessCounts?.pendingApplications ?? kpis.pendingApplications ?? 0} applications pending`, accent: 'amber', link: '/admin/operations' },
+    { title: 'Administrators', value: usersByRole.ADMIN ?? 1, icon: <ShieldCheck className="w-5 h-5 text-rose-500" />, desc: 'Platform operators', accent: 'rose', link: '/admin/access' },
+    { title: 'Pending Applications', value: accessCounts?.pendingApplications ?? 0, icon: <Clock className="w-5 h-5 text-violet-500" />, desc: 'Educator verification requests', accent: 'violet', link: '/admin/operations' },
+    { title: 'Pending Quizzes', value: accessCounts?.pendingQuizzes ?? kpis.pendingSubmissions ?? 0, icon: <ClipboardCheck className="w-5 h-5 text-indigo-500" />, desc: 'Awaiting quality review', accent: 'indigo', link: '/admin/operations' },
+    { title: 'Published Quizzes', value: accessCounts?.publishedQuizzes ?? 0, icon: <BookMarked className="w-5 h-5 text-emerald-500" />, desc: 'Live practice assessments', accent: 'emerald', link: '/admin/exams' },
+    { title: 'Total Attempts', value: accessCounts?.totalAttempts ?? kpis.totalAttempts ?? 0, icon: <Award className="w-5 h-5 text-teal-500" />, desc: `Average score: ${kpis.averageScore || '0'}%`, accent: 'teal' }
   ];
 
   return (

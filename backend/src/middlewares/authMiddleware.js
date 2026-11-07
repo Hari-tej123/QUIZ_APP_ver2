@@ -4,22 +4,18 @@ const { UnauthorizedError } = require('../utils/errors');
 
 module.exports = async (req, res, next) => {
   try {
-    console.log('--- Auth Debug ---');
-    console.log('Path:', req.originalUrl);
-    console.log('Method:', req.method);
-    console.log('Authorization Header:', req.headers.authorization);
-    
     let token;
     if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
       token = req.headers.authorization.split(' ')[1];
     }
+    if (!token && req.cookies) token = req.cookies.session;
 
     if (!token) {
       return next(new UnauthorizedError('You are not logged in. Please log in to get access.'));
     }
 
     // Verify token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'supersecretjwtkeyforquizapp2026!');
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
     // Check if user still exists
     const currentUser = await User.findByPk(decoded.id);

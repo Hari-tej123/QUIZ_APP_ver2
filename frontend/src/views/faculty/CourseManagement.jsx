@@ -226,9 +226,8 @@ export default function CourseManagement() {
 
   const handleDownloadTemplate = async () => {
   try {
-    const token = localStorage.getItem('token');
     const response = await fetch(`${BASE_URL}/faculty/quizzes/template`, {
-      headers: { Authorization: `Bearer ${token}` },
+      credentials: 'include'
     });
     if (!response.ok) throw new Error('Failed to download template');
     const blob = await response.blob();

@@ -125,29 +125,81 @@ CREATE DATABASE quiz_app_db;
    ```
    Open `http://localhost:5173` in your browser.
 
+### Authentication and Access Setup
+
+Copy `backend/.env.example` to `backend/.env` and set the database values, Google OAuth values, frontend origin, and a new random `JWT_SECRET` (at least 32 random bytes). Keep `.env` files out of source control. For local development, `COOKIE_SECURE=false`; use `COOKIE_SECURE=true` behind HTTPS in production. Set `CORS_ORIGINS` to a comma-separated list of exact frontend origins.
+
+Required backend keys are `PORT`, `NODE_ENV`, `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASS`, `DB_NAME`, `JWT_SECRET`, `JWT_EXPIRES_IN`, `UPLOAD_LIMIT`, `FRONTEND_URL`, `CORS_ORIGINS`, `COOKIE_SECURE`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `GOOGLE_CALLBACK_URL`. `COOKIE_DOMAIN` is optional. `ADMIN_EMAIL` and `ADMIN_PASSWORD` are required only for the explicit first-admin seed; use a unique password of at least 16 characters. `SHOW_EXAMS_WITHOUT_PUBLISHED_QUIZZES` is optional and defaults to `false`. `RESEND_API_KEY` and `EMAIL_FROM` are optional and enable decision emails; in-app notifications work without them. The frontend key is `VITE_API_URL` in `frontend/.env`.
+
+In Google Cloud Console:
+
+1. Configure the OAuth consent screen and publish/authorize the app for the intended users.
+2. Create an OAuth client ID with application type **Web application**.
+3. Add the frontend URL (for local development, `http://localhost:5173`) under **Authorized JavaScript origins**.
+4. Add the exact value of `GOOGLE_CALLBACK_URL` (for local development, `http://localhost:5000/api/auth/google/callback`) under **Authorized redirect URIs**.
+5. Put the client ID and client secret only in `backend/.env`; never add them to a `VITE_` variable.
+
+For the first administrator, set `ADMIN_EMAIL` and `ADMIN_PASSWORD` in `backend/.env`, then run `npx sequelize-cli db:seed --seed 20261107000001-seed-admin-and-published-competitive-content.js` from `backend/`. The seeder updates an existing matching admin or creates it if missing. Admin roles cannot be assigned by public registration, Google login, or a client-supplied role.
+
+Apply the new database migration with `npx sequelize-cli db:migrate` from `backend/`. Run the focused security tests with `npm test --prefix backend`; build the UI with `npm run build --prefix frontend`.
+
+---
+
+## Role-Based Access Control (RBAC) & Role Flow
+
+Quizzify enforces strict server-side Role-Based Access Control with 3 core roles:
+
+1. **`STUDENT` (Default)**
+   - All new signups (via email/password or Google OAuth) are **strictly assigned `STUDENT`**.
+   - The user role is never accepted from the client request body.
+   - Students can browse published competitive exams, take timed mock assessments or untimed practice drills with instant feedback, bookmark questions, and track mistakes in their revision folder.
+   - Students can submit an **Educator Access Request** (`/student/access-request`) with qualifications, experience, proof documents, and target syllabus subjects.
+
+2. **`EDUCATOR` (Verified Instructor)**
+   - Users become educators only when:
+     - An **Admin approves** their Educator Application from `/admin/operations`, assigning an `educatorType` (`COMPETITIVE`, `COLLEGE`, or `BOTH`).
+     - An **Admin generates a single-use invite token** (`POST /api/admin/educator-invites`), allowing registration directly into the `EDUCATOR` role.
+   - Educators can author quizzes mapped to Exam, Edition, Subject, and Topic with 4 options, a correct answer, and explanations.
+   - Quizzes follow a strict status lifecycle: `DRAFT -> PENDING_REVIEW -> PUBLISHED` or `REJECTED`. Educators can only view and edit their own quizzes (`ownerId === req.user.id`).
+
+3. **`ADMIN` (Platform Governance)**
+   - Admins oversee the review queue, approve/reject educator applications, publish or reject quiz sets, manage users and roles, and configure the syllabus taxonomy.
+   - **No public admin registration exists.** The first administrator is created exclusively via environment variables and a seed script.
+
+### How to Create / Update the First Admin
+
+1. Open `backend/.env` and set `ADMIN_EMAIL` and a unique `ADMIN_PASSWORD` (minimum 16 characters):
+   ```env
+   ADMIN_EMAIL=admin@quizapp.com
+   ADMIN_PASSWORD=AdminSecurePass2026!
+   ```
+2. Run the admin seeder:
+   ```bash
+   cd backend
+   npx sequelize-cli db:seed --seed 20261107000001-seed-admin-and-published-competitive-content.js
+   ```
+3. To seed complete competitive taxonomy (GATE, JEE Main, UPSC CSE, CAT) with published sample quizzes:
+   ```bash
+   npx sequelize-cli db:seed --seed 20261107000002-seed-missing-competitive-taxonomy.js
+   ```
+
 ---
 
 ## Seeded Login Credentials for Demo
 
-All seeded accounts are initialized with the password: `password123`.
+For rapid development and evaluation, demo quick-fill buttons are provided on the login page (`/login`):
 
-### 1. Administrator Account
+### 1. Platform Administrator
 - **Email:** `admin@quizapp.com`
-- **Role:** Full control over Faculty staff registration and usage stats.
-- **Route to Design System Reference:** Log in as Admin and navigate to `/design-system` using the sidebar or browser URL.
+- **Password:** `AdminSecurePass2026!`
+- **Workspace:** `/admin` (Review queue, Educator applications, User management, Exam hierarchy, Audit logs)
 
-### 2. Faculty Staff Accounts
-- **Email:** `faculty1@quizapp.com`
-  - **Specialization:** Algorithms, Discrete Maths.
-  - **Must Change Password on First Login:** No.
-- **Email:** `faculty2@quizapp.com`
-  - **Specialization:** Discrete Structures, Calculus.
-  - **Must Change Password on First Login:** Yes (will force password update modal upon signing in).
+### 2. Verified Educators
+- **Competitive Educator:** `contributor1@quizapp.com` / `password123`
+- **College Educator (Faculty):** `faculty1@quizapp.com` / `password123`
+- **Workspace:** `/contributor` (Create quiz, Authored question banks, Materials, Submissions)
 
-### 3. Active Student Accounts
-- **Emails:**
-  - `student1@quizapp.com` (Enrolled in Algorithms & Calculus, has completed Big O Quiz)
-  - `student2@quizapp.com` (Enrolled in Algorithms)
-  - `student3@quizapp.com` (Enrolled in Algorithms)
-  - `student4@quizapp.com` (Enrolled in Calculus)
-  - `student5@quizapp.com` (Enrolled in Calculus)
+### 3. Student Accounts
+- **Emails:** `student1@quizapp.com` to `student5@quizapp.com`
+- **Password:** `password123`
+- **Workspace:** `/student` (Competitive exams catalog, Drill-down, Practice & Mock assessments)

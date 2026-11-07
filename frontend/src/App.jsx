@@ -17,6 +17,8 @@ import ContributorManagement from './views/admin/ContributorManagement';
 import PayoutSettings from './views/admin/PayoutSettings';
 import FacultyManagement from './views/admin/FacultyManagement';
 import ExamManagement from './views/admin/ExamManagement';
+import AccessManagement from './views/admin/AccessManagement';
+import AdminOperations from './views/admin/AdminOperations';
 
 // Contributor / Educator Views
 import ContributorDashboard from './views/contributor/Dashboard';
@@ -29,6 +31,7 @@ import EarningsPayouts from './views/contributor/EarningsPayouts';
 // Faculty Views
 import FacultyDashboard from './views/faculty/Dashboard';
 import CourseManagement from './views/faculty/CourseManagement';
+import QuestionManager from './views/questions/QuestionManager';
 
 // Student Views
 import StudentDashboard from './views/student/Dashboard';
@@ -39,6 +42,7 @@ import TopicResources from './views/student/TopicResources';
 import QuizAttempt from './views/student/QuizAttempt';
 import RevisionFolder from './views/student/RevisionFolder';
 import PerformanceTrends from './views/student/PerformanceTrends';
+import AccessRequest from './views/student/AccessRequest';
 
 // Design System Reference
 import DesignSystem from './views/DesignSystem';
@@ -61,12 +65,14 @@ function DashboardRedirect() {
 
   const routes = {
     admin: '/admin',
+    educator: '/contributor',
     contributor: '/contributor',
     faculty: '/faculty',
     student: '/student'
   };
 
-  return <Navigate to={routes[user.role] || '/student'} replace />;
+  const role = ({ STUDENT: 'student', EDUCATOR: 'educator', ADMIN: 'admin' })[user.role] || user.role;
+  return <Navigate to={routes[role] || '/student'} replace />;
 }
 
 export default function App() {
@@ -144,12 +150,16 @@ export default function App() {
                 </ProtectedRoute>
               }
             />
+            <Route
+              path="/admin/access"
+              element={<ProtectedRoute allowedRoles={['admin']}><DashboardLayout><AccessManagement /></DashboardLayout></ProtectedRoute>}
+            />
 
             {/* 4. Contributor / Educator Protected Routes */}
             <Route
               path="/contributor"
               element={
-                <ProtectedRoute allowedRoles={['contributor', 'faculty', 'admin']}>
+                <ProtectedRoute allowedRoles={['educator', 'contributor', 'faculty', 'admin']}>
                   <DashboardLayout>
                     <ContributorDashboard />
                   </DashboardLayout>
@@ -157,9 +167,13 @@ export default function App() {
               }
             />
             <Route
+              path="/admin/operations"
+              element={<ProtectedRoute allowedRoles={['admin']}><DashboardLayout><AdminOperations /></DashboardLayout></ProtectedRoute>}
+            />
+            <Route
               path="/contributor/quizzes/create"
               element={
-                <ProtectedRoute allowedRoles={['contributor', 'faculty', 'admin']}>
+                <ProtectedRoute allowedRoles={['educator', 'contributor', 'faculty', 'admin']}>
                   <DashboardLayout>
                     <CreateQuiz />
                   </DashboardLayout>
@@ -169,7 +183,7 @@ export default function App() {
             <Route
               path="/contributor/quizzes"
               element={
-                <ProtectedRoute allowedRoles={['contributor', 'faculty', 'admin']}>
+                <ProtectedRoute allowedRoles={['educator', 'contributor', 'faculty', 'admin']}>
                   <DashboardLayout>
                     <ManageQuizzes />
                   </DashboardLayout>
@@ -179,7 +193,7 @@ export default function App() {
             <Route
               path="/contributor/materials"
               element={
-                <ProtectedRoute allowedRoles={['contributor', 'faculty', 'admin']}>
+                <ProtectedRoute allowedRoles={['educator', 'contributor', 'faculty', 'admin']}>
                   <DashboardLayout>
                     <StudyMaterials />
                   </DashboardLayout>
@@ -189,7 +203,7 @@ export default function App() {
             <Route
               path="/contributor/submissions"
               element={
-                <ProtectedRoute allowedRoles={['contributor', 'faculty', 'admin']}>
+                <ProtectedRoute allowedRoles={['educator', 'contributor', 'faculty', 'admin']}>
                   <DashboardLayout>
                     <Submissions />
                   </DashboardLayout>
@@ -199,7 +213,7 @@ export default function App() {
             <Route
               path="/contributor/payouts"
               element={
-                <ProtectedRoute allowedRoles={['contributor', 'faculty', 'admin']}>
+                <ProtectedRoute allowedRoles={['educator', 'contributor', 'faculty', 'admin']}>
                   <DashboardLayout>
                     <EarningsPayouts />
                   </DashboardLayout>
@@ -211,7 +225,7 @@ export default function App() {
             <Route
               path="/faculty"
               element={
-                <ProtectedRoute allowedRoles={['faculty', 'admin']}>
+                <ProtectedRoute allowedRoles={['educator', 'faculty', 'admin']}>
                   <DashboardLayout>
                     <FacultyDashboard />
                   </DashboardLayout>
@@ -221,19 +235,23 @@ export default function App() {
             <Route
               path="/faculty/courses"
               element={
-                <ProtectedRoute allowedRoles={['faculty', 'admin']}>
+                <ProtectedRoute allowedRoles={['educator', 'faculty', 'admin']}>
                   <DashboardLayout>
                     <CourseManagement />
                   </DashboardLayout>
                 </ProtectedRoute>
               }
             />
+            <Route
+              path="/questions"
+              element={<ProtectedRoute allowedRoles={['educator', 'faculty', 'admin']}><DashboardLayout><QuestionManager /></DashboardLayout></ProtectedRoute>}
+            />
 
             {/* 6. Student Protected Routes */}
             <Route
               path="/student"
               element={
-                <ProtectedRoute allowedRoles={['student', 'contributor', 'faculty', 'admin']}>
+                <ProtectedRoute allowedRoles={['student', 'educator', 'contributor', 'faculty', 'admin']}>
                   <DashboardLayout>
                     <StudentDashboard />
                   </DashboardLayout>
@@ -243,7 +261,7 @@ export default function App() {
             <Route
               path="/student/exams"
               element={
-                <ProtectedRoute allowedRoles={['student', 'contributor', 'faculty', 'admin']}>
+                <ProtectedRoute allowedRoles={['student', 'educator', 'contributor', 'faculty', 'admin']}>
                   <DashboardLayout>
                     <BrowseExams />
                   </DashboardLayout>
@@ -253,7 +271,7 @@ export default function App() {
             <Route
               path="/student/courses"
               element={
-                <ProtectedRoute allowedRoles={['student', 'contributor', 'faculty', 'admin']}>
+                <ProtectedRoute allowedRoles={['student', 'educator', 'contributor', 'faculty', 'admin']}>
                   <DashboardLayout>
                     <BrowseCourses />
                   </DashboardLayout>
@@ -263,7 +281,7 @@ export default function App() {
             <Route
               path="/student/courses/:courseId"
               element={
-                <ProtectedRoute allowedRoles={['student', 'contributor', 'faculty', 'admin']}>
+                <ProtectedRoute allowedRoles={['student', 'educator', 'contributor', 'faculty', 'admin']}>
                   <DashboardLayout>
                     <CourseDetails />
                   </DashboardLayout>
@@ -273,7 +291,7 @@ export default function App() {
             <Route
               path="/student/topics/:topicId/resources"
               element={
-                <ProtectedRoute allowedRoles={['student', 'contributor', 'faculty', 'admin']}>
+                <ProtectedRoute allowedRoles={['student', 'educator', 'contributor', 'faculty', 'admin']}>
                   <DashboardLayout>
                     <TopicResources />
                   </DashboardLayout>
@@ -283,7 +301,7 @@ export default function App() {
             <Route
               path="/student/quizzes/:quizId/attempt"
               element={
-                <ProtectedRoute allowedRoles={['student', 'contributor', 'faculty', 'admin']}>
+                <ProtectedRoute allowedRoles={['student', 'educator', 'contributor', 'faculty', 'admin']}>
                   <QuizAttempt />
                 </ProtectedRoute>
               }
@@ -291,7 +309,7 @@ export default function App() {
             <Route
               path="/student/revision"
               element={
-                <ProtectedRoute allowedRoles={['student', 'contributor', 'faculty', 'admin']}>
+                <ProtectedRoute allowedRoles={['student', 'educator', 'contributor', 'faculty', 'admin']}>
                   <DashboardLayout>
                     <RevisionFolder />
                   </DashboardLayout>
@@ -301,12 +319,16 @@ export default function App() {
             <Route
               path="/student/performance"
               element={
-                <ProtectedRoute allowedRoles={['student', 'contributor', 'faculty', 'admin']}>
+                <ProtectedRoute allowedRoles={['student', 'educator', 'contributor', 'faculty', 'admin']}>
                   <DashboardLayout>
                     <PerformanceTrends />
                   </DashboardLayout>
                 </ProtectedRoute>
               }
+            />
+            <Route
+              path="/student/access-request"
+              element={<ProtectedRoute allowedRoles={['student']}><DashboardLayout><AccessRequest /></DashboardLayout></ProtectedRoute>}
             />
 
             {/* 7. Shared Design System Protected Route */}

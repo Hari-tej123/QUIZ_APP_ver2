@@ -21,6 +21,34 @@ const {
 const { BadRequestError, NotFoundError, ForbiddenError } = require('../utils/errors');
 const { Op } = require('sequelize');
 
+const serializeAttemptQuestion = (question, bookmarkedIds) => ({
+  id: question.id,
+  questionText: question.questionText,
+  optionA: question.optionA,
+  optionB: question.optionB,
+  optionC: question.optionC,
+  optionD: question.optionD,
+  options: question.options,
+  questionType: question.questionType,
+  imageUrl: question.imageUrl,
+  subject: question.subject,
+  topic: question.topic,
+  marks: question.marks,
+  difficulty: question.difficulty,
+  tags: question.tags,
+  isBookmarked: bookmarkedIds.has(question.id)
+});
+exports.serializeAttemptQuestion = serializeAttemptQuestion;
+
+const serializeBookmarkedQuestion = (question) => {
+  const safeQuestion = question.get({ plain: true });
+  delete safeQuestion.correctOption;
+  delete safeQuestion.correctAnswers;
+  delete safeQuestion.explanation;
+  return safeQuestion;
+};
+exports.serializeBookmarkedQuestion = serializeBookmarkedQuestion;
+
 // ─── Course Catalog & Enrollment ────────────────────────────────────────────
 exports.getAvailableCourses = async (req, res, next) => {
   try {
@@ -30,7 +58,7 @@ exports.getAvailableCourses = async (req, res, next) => {
       include: [
         { model: User, as: 'faculty', attributes: ['id', 'name', 'email', 'department'] },
         { model: Subtopic, as: 'subtopics', attributes: ['id', 'title'] },
-        { model: Quiz, as: 'quizzes', where: { isPublished: true }, required: false, attributes: ['id', 'title'] },
+        { model: Quiz, as: 'quizzes', where: { status: 'PUBLISHED', isPublished: true }, required: false, attributes: ['id', 'title'] },
         { model: StudyMaterial, as: 'materials', where: { status: 'approved' }, required: false, attributes: ['id', 'title', 'type'] }
       ],
       order: [['createdAt', 'DESC']]
@@ -108,7 +136,7 @@ exports.getEnrolledCourses = async (req, res, next) => {
           include: [
             { model: User, as: 'faculty', attributes: ['id', 'name', 'email'] },
             { model: Subtopic, as: 'subtopics', attributes: ['id', 'title'] },
-            { model: Quiz, as: 'quizzes', where: { isPublished: true }, required: false, attributes: ['id'] }
+            { model: Quiz, as: 'quizzes', where: { status: 'PUBLISHED', isPublished: true }, required: false, attributes: ['id'] }
           ]
         }
       ],
@@ -153,7 +181,7 @@ exports.getCourseDetails = async (req, res, next) => {
             {
               model: Quiz,
               as: 'quizzes',
-              where: { isPublished: true },
+              where: { status: 'PUBLISHED', isPublished: true },
               required: false,
               include: [{ model: User, as: 'author', attributes: ['id', 'name', 'badge'] }]
             },
@@ -169,7 +197,7 @@ exports.getCourseDetails = async (req, res, next) => {
         {
           model: Quiz,
           as: 'quizzes',
-          where: { isPublished: true, subtopicId: null },
+          where: { status: 'PUBLISHED', isPublished: true, subtopicId: null },
           required: false,
           include: [{ model: User, as: 'author', attributes: ['id', 'name', 'badge'] }]
         }
@@ -215,7 +243,7 @@ exports.getTopicResources = async (req, res, next) => {
           order: [['createdAt', 'DESC']]
         });
         quizzes = await Quiz.findAll({
-          where: { subtopicId: topicId, isPublished: true },
+          where: { subtopicId: topicId, status: 'PUBLISHED', isPublished: true },
           include: [{ model: User, as: 'author', attributes: ['id', 'name', 'badge'] }],
           order: [['createdAt', 'DESC']]
         });
@@ -233,18 +261,32 @@ exports.getTopicResources = async (req, res, next) => {
           }]
         }]
       });
-      if (topicData) {
-        materials = await StudyMaterial.findAll({
-          where: { examTopicId: topicId, status: 'approved' },
-          include: [{ model: User, as: 'author', attributes: ['id', 'name', 'badge', 'subjectExpertise'] }],
-          order: [['createdAt', 'DESC']]
-        });
-        quizzes = await Quiz.findAll({
-          where: { examTopicId: topicId, isPublished: true },
-          include: [{ model: User, as: 'author', attributes: ['id', 'name', 'badge'] }],
-          order: [['createdAt', 'DESC']]
-        });
+
+      if (!topicData) {
+        return next(new NotFoundError('Topic not found.'));
       }
+
+      // Check if student is registered for this exam
+      const examId = topicData.subject?.edition?.exam?.id;
+      if (examId) {
+        const isRegistered = await UserExamPreference.findOne({
+          where: { userId: req.user.id, examId }
+        });
+        if (!isRegistered) {
+          return next(new ForbiddenError('You must register for this competitive exam to access its study materials and quizzes.'));
+        }
+      }
+
+      materials = await StudyMaterial.findAll({
+        where: { examTopicId: topicId, status: 'approved' },
+        include: [{ model: User, as: 'author', attributes: ['id', 'name', 'badge', 'subjectExpertise'] }],
+        order: [['createdAt', 'DESC']]
+      });
+      quizzes = await Quiz.findAll({
+        where: { examTopicId: topicId, status: 'PUBLISHED', isPublished: true },
+        include: [{ model: User, as: 'author', attributes: ['id', 'name', 'badge'] }],
+        order: [['createdAt', 'DESC']]
+      });
     }
 
     if (!topicData) {
@@ -282,6 +324,27 @@ exports.startQuizAttempt = async (req, res, next) => {
     if (!quiz) {
       return next(new NotFoundError('Quiz not found.'));
     }
+    if (!quiz.isPublished || quiz.status !== 'PUBLISHED') {
+      return next(new NotFoundError('Quiz not found.'));
+    }
+
+    // If competitive exam quiz, check if student is registered for the exam
+    const quizTrack = quiz.track || (quiz.courseId ? 'COLLEGE' : 'COMPETITIVE');
+    if (quizTrack === 'COMPETITIVE') {
+      let examId = quiz.examId;
+      if (!examId && quiz.examEditionId) {
+        const edition = await ExamEdition.findByPk(quiz.examEditionId);
+        if (edition) examId = edition.examId;
+      }
+      if (examId) {
+        const isRegistered = await UserExamPreference.findOne({
+          where: { userId: studentId, examId }
+        });
+        if (!isRegistered) {
+          return next(new ForbiddenError('You are not registered for this competitive exam. Please add it to your exam preferences first.'));
+        }
+      }
+    }
 
     // Auto-enroll if college quiz
     if (quiz.courseId && !quiz.examTopicId) {
@@ -297,12 +360,23 @@ exports.startQuizAttempt = async (req, res, next) => {
       include: [{ model: AttemptAnswer, as: 'answers' }]
     });
 
-    const fetchQuestions = async () => {
-      return Question.findAll({
-        where: { quizId },
-        attributes: ['id', 'questionText', 'optionA', 'optionB', 'optionC', 'optionD', 'marks', 'difficulty', 'tags', 'explanation'],
+    const fetchQuestions = async (questionOrder) => {
+      const questions = await Question.findAll({
+        where: { quizId, status: 'published' },
+        attributes: ['id', 'questionText', 'optionA', 'optionB', 'optionC', 'optionD', 'options', 'questionType', 'imageUrl', 'subject', 'topic', 'marks', 'difficulty', 'tags'],
         order: [['createdAt', 'ASC']]
       });
+      if (!Array.isArray(questionOrder) || !questionOrder.length) return questions;
+      const byId = new Map(questions.map(question => [question.id, question]));
+      return questionOrder.map(id => byId.get(id)).filter(Boolean);
+    };
+
+    const shuffleQuestions = (questions) => {
+      for (let index = questions.length - 1; index > 0; index -= 1) {
+        const swapIndex = Math.floor(Math.random() * (index + 1));
+        [questions[index], questions[swapIndex]] = [questions[swapIndex], questions[index]];
+      }
+      return questions;
     };
 
     // Bookmarks for student
@@ -317,11 +391,10 @@ exports.startQuizAttempt = async (req, res, next) => {
         existingInProgress.submitTime = new Date();
         await existingInProgress.save();
       } else if (action === 'resume') {
-        const questions = await fetchQuestions();
+        const questions = await fetchQuestions(existingInProgress.questionOrder);
         const savedAnswers = existingInProgress.answers.map(a => ({
           questionId: a.questionId,
-          selectedOption: a.selectedOption,
-          isCorrect: a.isCorrect
+          selectedOption: a.selectedOption
         }));
 
         return res.status(200).json({
@@ -332,20 +405,7 @@ exports.startQuizAttempt = async (req, res, next) => {
           quizDuration: quiz.duration,
           mode: existingInProgress.mode || mode,
           author: quiz.author,
-          questions: questions.map(q => ({
-            id: q.id,
-            questionText: q.questionText,
-            optionA: q.optionA,
-            optionB: q.optionB,
-            optionC: q.optionC,
-            optionD: q.optionD,
-            marks: q.marks,
-            difficulty: q.difficulty,
-            tags: q.tags,
-            isBookmarked: bookmarkedIds.has(q.id),
-            // Expose explanation in practice mode only if needed
-            explanation: existingInProgress.mode === 'practice' ? q.explanation : undefined
-          })),
+          questions: questions.map(q => serializeAttemptQuestion(q, bookmarkedIds)),
           savedAnswers
         });
       } else {
@@ -363,6 +423,9 @@ exports.startQuizAttempt = async (req, res, next) => {
 
     const totalAttempts = await QuizAttempt.count({ where: { quizId, studentId } });
 
+    let questions = await fetchQuestions();
+    if (quiz.examTopicId) questions = shuffleQuestions(questions);
+
     const newAttempt = await QuizAttempt.create({
       quizId,
       studentId,
@@ -370,31 +433,20 @@ exports.startQuizAttempt = async (req, res, next) => {
       startTime: new Date(),
       status: 'in-progress',
       score: 0.0,
-      mode: ['mock', 'practice'].includes(mode) ? mode : 'mock'
+      mode: ['mock', 'practice'].includes(mode) ? mode : 'mock',
+      questionOrder: questions.map(question => question.id)
     });
-
-    const questions = await fetchQuestions();
 
     res.status(201).json({
       status: 'success',
       attempt: newAttempt,
+      startedAt: newAttempt.startTime,
       quizTitle: quiz.title,
       quizDescription: quiz.description,
       quizDuration: quiz.duration,
       mode: newAttempt.mode,
       author: quiz.author,
-      questions: questions.map(q => ({
-        id: q.id,
-        questionText: q.questionText,
-        optionA: q.optionA,
-        optionB: q.optionB,
-        optionC: q.optionC,
-        optionD: q.optionD,
-        marks: q.marks,
-        difficulty: q.difficulty,
-        tags: q.tags,
-        isBookmarked: bookmarkedIds.has(q.id)
-      })),
+      questions: questions.map(q => serializeAttemptQuestion(q, bookmarkedIds)),
       savedAnswers: []
     });
   } catch (err) {
@@ -409,7 +461,7 @@ exports.checkQuestionAnswer = async (req, res, next) => {
     const { questionId, selectedOption } = req.body;
     const studentId = req.user.id;
 
-    if (!questionId || !selectedOption) {
+    if (!questionId || selectedOption === undefined || selectedOption === null || selectedOption === '' || (Array.isArray(selectedOption) && !selectedOption.length)) {
       return next(new BadRequestError('Question ID and selected option are required.'));
     }
 
@@ -417,23 +469,38 @@ exports.checkQuestionAnswer = async (req, res, next) => {
     if (!attempt) {
       return next(new NotFoundError('Attempt not found.'));
     }
+    if (attempt.mode !== 'practice' || attempt.status !== 'in-progress') {
+      return next(new ForbiddenError('Instant answer feedback is only available in an active practice attempt.'));
+    }
 
-    const question = await Question.findByPk(questionId);
+    const question = await Question.findOne({ where: { id: questionId, quizId: attempt.quizId, status: 'published' } });
+    if (Array.isArray(attempt.questionOrder) && !attempt.questionOrder.includes(questionId)) {
+      return next(new NotFoundError('Question not found in this attempt.'));
+    }
     if (!question) {
       return next(new NotFoundError('Question not found.'));
     }
 
-    const isCorrect = selectedOption.toUpperCase() === question.correctOption;
+    const normalizedSelection = Array.isArray(selectedOption)
+      ? selectedOption.map(value => String(value).trim()).sort()
+      : String(selectedOption).trim();
+    const expectedAnswers = question.correctAnswers?.length ? question.correctAnswers : [question.correctOption];
+    const isCorrect = question.questionType === 'multiple-select'
+      ? Array.isArray(normalizedSelection) && JSON.stringify(normalizedSelection.map(value => value.toUpperCase()).sort()) === JSON.stringify(expectedAnswers.map(value => String(value).toUpperCase()).sort())
+      : question.questionType === 'numeric' || question.questionType === 'short-answer'
+        ? !Array.isArray(normalizedSelection) && expectedAnswers.some(value => String(value).trim().toLowerCase() === normalizedSelection.toLowerCase())
+        : !Array.isArray(normalizedSelection) && expectedAnswers.some(value => String(value).toUpperCase() === normalizedSelection.toUpperCase());
+    const answerValue = Array.isArray(selectedOption) ? JSON.stringify(selectedOption) : String(selectedOption).trim();
     const marksObtained = isCorrect ? question.marks : 0;
 
     // Save AttemptAnswer
     const [answer, created] = await AttemptAnswer.findOrCreate({
       where: { attemptId, questionId },
-      defaults: { selectedOption: selectedOption.toUpperCase(), isCorrect, marksObtained }
+      defaults: { selectedOption: answerValue, isCorrect, marksObtained }
     });
 
     if (!created) {
-      answer.selectedOption = selectedOption.toUpperCase();
+      answer.selectedOption = answerValue;
       answer.isCorrect = isCorrect;
       answer.marksObtained = marksObtained;
       await answer.save();
@@ -446,7 +513,7 @@ exports.checkQuestionAnswer = async (req, res, next) => {
         quizId: attempt.quizId,
         isMistake: !isCorrect,
         mistakeCount: isCorrect ? 0 : 1,
-        lastSelectedOption: selectedOption.toUpperCase()
+        lastSelectedOption: answerValue.slice(0, 10)
       }
     });
 
@@ -455,7 +522,7 @@ exports.checkQuestionAnswer = async (req, res, next) => {
         record.isMistake = true;
         record.mistakeCount += 1;
       }
-      record.lastSelectedOption = selectedOption.toUpperCase();
+      record.lastSelectedOption = answerValue.slice(0, 10);
       await record.save();
     }
 
@@ -463,8 +530,9 @@ exports.checkQuestionAnswer = async (req, res, next) => {
       status: 'success',
       data: {
         questionId: question.id,
-        selectedOption: selectedOption.toUpperCase(),
+        selectedOption: answerValue,
         correctOption: question.correctOption,
+        correctAnswers: expectedAnswers,
         isCorrect,
         explanation: question.explanation || 'No step-by-step explanation available for this question.',
         marksObtained,
@@ -484,7 +552,7 @@ exports.saveAttemptAnswer = async (req, res, next) => {
     const { questionId, selectedOption } = req.body;
     const studentId = req.user.id;
 
-    if (!questionId || !selectedOption) {
+    if (!questionId || selectedOption === undefined || selectedOption === null || selectedOption === '' || (Array.isArray(selectedOption) && !selectedOption.length)) {
       return next(new BadRequestError('Question ID and selected option are required.'));
     }
 
@@ -512,21 +580,33 @@ exports.saveAttemptAnswer = async (req, res, next) => {
       }
     }
 
-    const question = await Question.findOne({ where: { id: questionId, quizId: attempt.quizId } });
+    const question = await Question.findOne({ where: { id: questionId, quizId: attempt.quizId, status: 'published' } });
+    if (Array.isArray(attempt.questionOrder) && !attempt.questionOrder.includes(questionId)) {
+      return next(new NotFoundError('Question not found in this attempt.'));
+    }
     if (!question) {
       return next(new NotFoundError('Question not found in this quiz.'));
     }
 
-    const isCorrect = selectedOption.toUpperCase() === question.correctOption;
+    const normalizedSelection = Array.isArray(selectedOption)
+      ? selectedOption.map(value => String(value).trim()).sort()
+      : String(selectedOption).trim();
+    const expectedAnswers = question.correctAnswers?.length ? question.correctAnswers : [question.correctOption];
+    const isCorrect = question.questionType === 'multiple-select'
+      ? Array.isArray(normalizedSelection) && JSON.stringify(normalizedSelection.map(value => value.toUpperCase()).sort()) === JSON.stringify(expectedAnswers.map(value => String(value).toUpperCase()).sort())
+      : question.questionType === 'numeric' || question.questionType === 'short-answer'
+        ? !Array.isArray(normalizedSelection) && expectedAnswers.some(value => String(value).trim().toLowerCase() === normalizedSelection.toLowerCase())
+        : !Array.isArray(normalizedSelection) && expectedAnswers.some(value => String(value).toUpperCase() === normalizedSelection.toUpperCase());
+    const answerValue = Array.isArray(selectedOption) ? JSON.stringify(selectedOption) : String(selectedOption).trim();
     const marksObtained = isCorrect ? question.marks : 0;
 
     const [answer, created] = await AttemptAnswer.findOrCreate({
       where: { attemptId, questionId },
-      defaults: { selectedOption: selectedOption.toUpperCase(), isCorrect, marksObtained }
+      defaults: { selectedOption: answerValue, isCorrect, marksObtained }
     });
 
     if (!created) {
-      answer.selectedOption = selectedOption.toUpperCase();
+      answer.selectedOption = answerValue;
       answer.isCorrect = isCorrect;
       answer.marksObtained = marksObtained;
       await answer.save();
@@ -570,7 +650,7 @@ exports.submitQuizAttempt = async (req, res, next) => {
     const timeSpentSeconds = Math.max(1, Math.round((now - new Date(attempt.startTime)) / 1000));
 
     // Get all quiz questions
-    const allQuestions = await Question.findAll({ where: { quizId: attempt.quizId } });
+    const allQuestions = await Question.findAll({ where: { quizId: attempt.quizId, status: 'published' } });
     const totalQuestions = allQuestions.length;
 
     const answersMap = new Map();
@@ -635,7 +715,7 @@ exports.submitQuizAttempt = async (req, res, next) => {
 
       // Revenue share to Contributor if applicable
       const author = attempt.quiz.author;
-      if (author && author.role === 'contributor') {
+      if (author && ['EDUCATOR', 'contributor'].includes(author.role)) {
         const revSetting = await PlatformSetting.findOne({ where: { key: 'rev_share_per_attempt' } });
         const revSharePerAttempt = revSetting ? parseFloat(revSetting.value) : 0.10;
 
@@ -703,12 +783,19 @@ exports.getAttemptResults = async (req, res, next) => {
     if (!attempt) {
       return next(new NotFoundError('Quiz attempt not found.'));
     }
+    if (!['completed', 'auto-submitted'].includes(attempt.status) || attempt.hiddenFromStudent) {
+      return next(new ForbiddenError('Submit the attempt before viewing correct answers and explanations.'));
+    }
 
     // Fetch all questions with answers & explanations
-    const questions = await Question.findAll({
-      where: { quizId: attempt.quizId },
+    let questions = await Question.findAll({
+      where: { quizId: attempt.quizId, status: 'published' },
       order: [['createdAt', 'ASC']]
     });
+    if (Array.isArray(attempt.questionOrder) && attempt.questionOrder.length) {
+      const byId = new Map(questions.map(question => [question.id, question]));
+      questions = attempt.questionOrder.map(id => byId.get(id)).filter(Boolean);
+    }
 
     // Fetch student's bookmarks
     const bookmarks = await StudentQuestionRecord.findAll({
@@ -734,8 +821,11 @@ exports.getAttemptResults = async (req, res, next) => {
         optionB: q.optionB,
         optionC: q.optionC,
         optionD: q.optionD,
+        options: q.options,
+        questionType: q.questionType,
         selectedOption,
         correctOption: q.correctOption,
+        correctAnswers: q.correctAnswers,
         isCorrect,
         isSkipped,
         marks: q.marks,
@@ -849,13 +939,10 @@ exports.getBookmarkedQuestions = async (req, res, next) => {
     res.status(200).json({
       status: 'success',
       results: records.length,
-      data: records.map(r => ({
-        id: r.id,
-        questionId: r.questionId,
-        notes: r.notes,
-        savedAt: r.updatedAt,
-        question: r.question
-      }))
+      data: records.map(r => {
+        const question = r.question ? serializeBookmarkedQuestion(r.question) : null;
+        return { id: r.id, questionId: r.questionId, notes: r.notes, savedAt: r.updatedAt, question };
+      })
     });
   } catch (err) {
     next(err);
@@ -908,7 +995,10 @@ exports.getMistakesList = async (req, res, next) => {
 exports.createRevisionQuiz = async (req, res, next) => {
   try {
     const studentId = req.user.id;
-    const { source = 'mistakes', limit = 10, mode = 'practice' } = req.body;
+    const { source = 'mistakes', limit = 10 } = req.body;
+    if (!['mistakes', 'bookmarks'].includes(source)) {
+      return next(new BadRequestError('Revision source must be mistakes or bookmarks.'));
+    }
 
     const where = { studentId };
     if (source === 'bookmarks') {
@@ -919,7 +1009,7 @@ exports.createRevisionQuiz = async (req, res, next) => {
 
     const records = await StudentQuestionRecord.findAll({
       where,
-      limit: parseInt(limit, 10) || 10,
+      limit: Math.min(30, Math.max(1, parseInt(limit, 10) || 10)),
       include: [{ model: Question, as: 'question' }],
       order: sequelize.random()
     });
@@ -936,43 +1026,38 @@ exports.createRevisionQuiz = async (req, res, next) => {
       description: `Targeted revision set covering ${questions.length} questions from your ${source}.`,
       duration: Math.max(5, questions.length * 2),
       authorId: studentId,
-      status: 'approved',
-      isPublished: false
+      status: 'PUBLISHED',
+      isPublished: true
     });
 
-    // Create a new Attempt
-    const attempt = await QuizAttempt.create({
+    await Question.bulkCreate(questions.map(q => ({
       quizId: revisionQuiz.id,
-      studentId,
-      attemptNumber: 1,
-      startTime: new Date(),
-      status: 'in-progress',
-      score: 0.0,
-      mode: ['mock', 'practice'].includes(mode) ? mode : 'practice'
-    });
-
-    // Associate cloned questions to this revision quiz or return them directly
-    const questionsWithMeta = questions.map(q => ({
-      id: q.id,
       questionText: q.questionText,
       optionA: q.optionA,
       optionB: q.optionB,
       optionC: q.optionC,
       optionD: q.optionD,
+      correctOption: q.correctOption,
+      questionType: q.questionType,
+      options: q.options,
+      correctAnswers: q.correctAnswers,
+      explanation: q.explanation,
+      subject: q.subject,
+      topic: q.topic,
+      track: q.track,
+      status: 'published',
+      createdBy: q.createdBy,
+      imageUrl: q.imageUrl,
       marks: q.marks,
       difficulty: q.difficulty,
-      tags: q.tags,
-      explanation: mode === 'practice' ? q.explanation : undefined,
-      isBookmarked: source === 'bookmarks'
-    }));
+      tags: q.tags
+    })));
 
     res.status(201).json({
       status: 'success',
       message: 'Revision quiz generated successfully!',
       data: {
-        attempt,
-        quiz: revisionQuiz,
-        questions: questionsWithMeta
+        quiz: revisionQuiz
       }
     });
   } catch (err) {
@@ -1210,6 +1295,209 @@ exports.setExamPreferences = async (req, res, next) => {
       data: { examIds }
     });
   } catch (err) { next(err); }
+};
+
+exports.addExamPreference = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const { examId } = req.params;
+    const exam = await Exam.findByPk(examId);
+    if (!exam || exam.status !== 'active') {
+      return next(new NotFoundError('Active exam not found.'));
+    }
+    const [pref, created] = await UserExamPreference.findOrCreate({
+      where: { userId, examId },
+      defaults: { userId, examId }
+    });
+    res.status(200).json({
+      status: 'success',
+      message: created ? 'Exam registered successfully.' : 'Exam already registered.',
+      data: exam
+    });
+  } catch (err) { next(err); }
+};
+
+exports.removeExamPreference = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const { examId } = req.params;
+    await UserExamPreference.destroy({ where: { userId, examId } });
+    res.status(200).json({
+      status: 'success',
+      message: 'Exam removed from your preferences.'
+    });
+  } catch (err) { next(err); }
+};
+
+// ─── Student Exams & Quizzes Filtered By Registrations ───────────────────────
+exports.getStudentQuizzes = async (req, res, next) => {
+  try {
+    const studentId = req.user.id;
+    const user = await User.findByPk(studentId);
+
+    // 1. Get registered competitive exam IDs
+    const userPrefs = await UserExamPreference.findAll({
+      where: { userId: studentId },
+      attributes: ['examId']
+    });
+    const registeredExamIds = userPrefs.map(p => p.examId);
+
+    // 2. Build where clause:
+    // If student has registered exams:
+    //   (track = 'COLLEGE' AND (instituteId = user.instituteId OR courseId IN enrolledCourses))
+    //   OR
+    //   (track = 'COMPETITIVE' AND examId IN registeredExamIds)
+    // If student has NO registered exams:
+    //   ONLY COLLEGE quizzes!
+    const whereConditions = [];
+
+    // College quizzes condition (for student's institute or enrolled courses)
+    const enrollments = await Enrollment.findAll({ where: { studentId }, attributes: ['courseId'] });
+    const enrolledCourseIds = enrollments.map(e => e.courseId);
+
+    const collegeOr = [{ track: 'COLLEGE' }];
+    if (user?.instituteId) {
+      collegeOr.push({ instituteId: user.instituteId });
+    }
+    if (enrolledCourseIds.length > 0) {
+      collegeOr.push({ courseId: { [Op.in]: enrolledCourseIds } });
+    }
+
+    const collegeCondition = {
+      [Op.or]: [
+        { track: 'COLLEGE' },
+        { courseId: { [Op.ne]: null } }
+      ]
+    };
+
+    if (registeredExamIds.length > 0) {
+      whereConditions.push({
+        [Op.or]: [
+          collegeCondition,
+          {
+            track: 'COMPETITIVE',
+            examId: { [Op.in]: registeredExamIds }
+          }
+        ]
+      });
+    } else {
+      // No registered competitive exams -> return ONLY college quizzes!
+      whereConditions.push(collegeCondition);
+    }
+
+    const quizzes = await Quiz.findAll({
+      where: {
+        status: 'PUBLISHED',
+        isPublished: true,
+        [Op.and]: whereConditions
+      },
+      include: [
+        { model: Course, as: 'course', attributes: ['id', 'title', 'subject'] },
+        { model: ExamTopic, as: 'examTopic', attributes: ['id', 'name'] },
+        { model: User, as: 'author', attributes: ['id', 'name', 'badge'] }
+      ],
+      order: [['createdAt', 'DESC']]
+    });
+
+    res.status(200).json({
+      status: 'success',
+      results: quizzes.length,
+      data: quizzes
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ─── Topic-wise Content for Registered Exam ──────────────────────────────────
+exports.getExamTopicsWithCounts = async (req, res, next) => {
+  try {
+    const studentId = req.user.id;
+    const { examId } = req.params;
+
+    // Verify student is registered for this exam
+    const isRegistered = await UserExamPreference.findOne({
+      where: { userId: studentId, examId }
+    });
+    if (!isRegistered) {
+      return next(new ForbiddenError('You are not registered for this competitive exam. Please register first.'));
+    }
+
+    const exam = await Exam.findByPk(examId);
+    if (!exam) return next(new NotFoundError('Exam not found.'));
+
+    // Find all editions for this exam
+    const editions = await ExamEdition.findAll({
+      where: { examId, is_active: true },
+      include: [{
+        model: ExamSubject,
+        as: 'subjects',
+        include: [{
+          model: ExamTopic,
+          as: 'topics',
+          include: [{
+            model: Quiz,
+            as: 'quizzes',
+            where: { status: 'PUBLISHED', isPublished: true },
+            required: false,
+            attributes: ['id', 'title', 'duration']
+          }]
+        }]
+      }]
+    });
+
+    // Flatten subjects and topics with quiz & question counts
+    const subjectList = [];
+    for (const edition of editions) {
+      for (const subject of edition.subjects || []) {
+        const topicsData = [];
+        for (const topic of subject.topics || []) {
+          const publishedQuizzes = topic.quizzes || [];
+          const questionCount = await Question.count({
+            where: {
+              status: 'published',
+              [Op.or]: [
+                { topic: topic.name },
+                { quizId: { [Op.in]: publishedQuizzes.map(q => q.id) } }
+              ]
+            }
+          });
+
+          topicsData.push({
+            id: topic.id,
+            name: topic.name,
+            description: topic.description,
+            quizCount: publishedQuizzes.length,
+            questionCount,
+            quizzes: publishedQuizzes
+          });
+        }
+
+        subjectList.push({
+          id: subject.id,
+          name: subject.name,
+          description: subject.description,
+          topics: topicsData
+        });
+      }
+    }
+
+    res.status(200).json({
+      status: 'success',
+      data: {
+        exam: {
+          id: exam.id,
+          name: exam.name,
+          code: exam.code,
+          category: exam.category,
+          description: exam.description
+        },
+        subjects: subjectList
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
 };
 
 // ─── Quiz Attempt History & Management ──────────────────────────────────────

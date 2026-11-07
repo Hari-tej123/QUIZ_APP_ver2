@@ -28,6 +28,10 @@ module.exports = (sequelize) => {
     facultyId: {
       type: DataTypes.UUID,
       allowNull: false
+    },
+    instituteId: {
+      type: DataTypes.STRING(100),
+      allowNull: true
     }
   }, {
     tableName: 'courses',

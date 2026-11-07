@@ -4,6 +4,7 @@ import { useToast } from '../../context/ToastContext';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { Input, Button, Badge } from '../../components/UI';
 import { Eye, EyeOff, Lock, Mail, GraduationCap, ArrowLeft, Sparkles } from 'lucide-react';
+import { BASE_URL } from '../../utils/apiClient';
 
 export default function Login() {
   const { login } = useAuth();
@@ -11,6 +12,10 @@ export default function Login() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const redirectTarget = searchParams.get('redirect');
+  const googleStatus = searchParams.get('google');
+  const inviteToken = searchParams.get('invite');
+  const demoAdminEmail = (import.meta.env.DEV ? import.meta.env.VITE_DEMO_ADMIN_EMAIL : '') || 'admin@quizapp.com';
+  const demoAdminPassword = (import.meta.env.DEV ? import.meta.env.VITE_DEMO_ADMIN_PASSWORD : '') || 'AdminSecurePass2026!';
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -34,9 +39,8 @@ export default function Login() {
       }
 
       // Redirect based on role
-      if (user.role === 'admin') navigate('/admin');
-      else if (user.role === 'contributor') navigate('/contributor');
-      else if (user.role === 'faculty') navigate('/faculty');
+      if (user.role === 'ADMIN') navigate('/admin');
+      else if (user.role === 'EDUCATOR') navigate('/contributor');
       else navigate('/student');
     } catch (err) {
       showError(err.message || 'Login failed. Please check your credentials.');
@@ -79,8 +83,15 @@ export default function Login() {
           </p>
         </div>
 
-        {/* Demo Account Pills for Testing */}
-        <div className="mb-6 p-3 bg-neutral-50 border border-neutral-200/80 rounded-2xl">
+        {googleStatus && (
+          <div role="status" className={`mb-4 rounded-lg border p-3 text-xs ${googleStatus === 'not-configured' ? 'border-amber-300 bg-amber-50 text-amber-900' : 'border-rose-300 bg-rose-50 text-rose-800'}`}>
+            {googleStatus === 'not-configured'
+              ? 'Google sign-in is not configured yet. Add GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and GOOGLE_CALLBACK_URL to backend/.env, then restart the backend.'
+              : 'Google sign-in did not complete. Please try again or use email and password.'}
+          </div>
+        )}
+
+        {import.meta.env.DEV && <div className="mb-6 p-3 bg-neutral-50 border border-neutral-200/80 rounded-2xl">
           <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 block mb-2 text-center">
             ⚡ Quick-Fill Demo Credentials
           </span>
@@ -102,19 +113,19 @@ export default function Login() {
             <button
               type="button"
               onClick={() => fillCredentials('faculty1@quizapp.com')}
-              className="px-2 py-1.5 text-[10px] font-bold rounded-lg bg-white border border-neutral-200/90 text-neutral-700 hover:border-primary-400 hover:text-primary-600 transition-all cursor-pointer shadow-xs"
+              className="px-2 py-1.5 text-[10px] font-bold rounded-lg bg-amber-50 border border-amber-200 text-amber-800 hover:border-amber-400 transition-all cursor-pointer shadow-xs"
             >
-              👨‍🏫 Faculty
+              🏛️ Faculty
             </button>
-            <button
+            {demoAdminEmail && demoAdminPassword && <button
               type="button"
-              onClick={() => fillCredentials('admin@quizapp.com')}
-              className="px-2 py-1.5 text-[10px] font-bold rounded-lg bg-white border border-neutral-200/90 text-neutral-700 hover:border-primary-400 hover:text-primary-600 transition-all cursor-pointer shadow-xs"
+              onClick={() => fillCredentials(demoAdminEmail, demoAdminPassword)}
+              className="px-2 py-1.5 text-[10px] font-bold rounded-lg bg-neutral-900 border border-neutral-900 text-white hover:bg-neutral-700 transition-all cursor-pointer shadow-xs"
             >
-              🛡️ Admin
-            </button>
+              Admin
+            </button>}
           </div>
-        </div>
+        </div>}
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <Input
@@ -150,10 +161,24 @@ export default function Login() {
           </Button>
         </form>
 
+        <div className="relative my-5 text-center">
+          <span className="bg-white px-3 text-[10px] font-bold uppercase tracking-wider text-neutral-400">or continue with</span>
+          <span className="absolute left-0 right-0 top-1/2 -z-10 border-t border-neutral-200" />
+        </div>
+        <Button
+          type="button"
+          variant="secondary"
+          size="md"
+          className="w-full font-bold"
+          onClick={() => window.location.assign(`${BASE_URL}/auth/google${inviteToken ? `?invite=${encodeURIComponent(inviteToken)}` : ''}`)}
+        >
+          <span className="mr-2 font-black text-base text-blue-600">G</span> Sign in with Google
+        </Button>
+
         <div className="mt-6 border-t border-neutral-100 pt-4 text-center">
           <p className="text-xs text-neutral-500 font-medium">
             Don't have an account?{' '}
-            <Link to="/register" className="text-primary-600 hover:underline font-bold transition-all">
+            <Link to={inviteToken ? `/register?invite=${encodeURIComponent(inviteToken)}` : '/register'} className="text-primary-600 hover:underline font-bold transition-all">
               Register Free
             </Link>
           </p>

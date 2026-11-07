@@ -25,7 +25,7 @@ router.post('/editions/:editionId/subjects', authMiddleware, roleGuard('admin'),
 router.put('/subjects/:subjectId', authMiddleware, roleGuard('admin'), examController.updateSubject);
 router.delete('/subjects/:subjectId', authMiddleware, roleGuard('admin'), examController.deleteSubject);
 
-router.post('/subjects/:subjectId/topics', authMiddleware, roleGuard('admin'), examController.createTopic);
+router.post('/subjects/:subjectId/topics', authMiddleware, roleGuard('admin', 'educator', 'faculty', 'contributor'), examController.createTopic);
 router.put('/topics/:topicId', authMiddleware, roleGuard('admin'), examController.updateTopic);
 router.delete('/topics/:topicId', authMiddleware, roleGuard('admin'), examController.deleteTopic);
 

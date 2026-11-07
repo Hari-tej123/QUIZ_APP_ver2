@@ -18,6 +18,18 @@ module.exports = (sequelize) => {
       unique: true,
       validate: { notEmpty: true }
     },
+    category: {
+      type: DataTypes.STRING(40),
+      allowNull: false,
+      defaultValue: 'ENGINEERING',
+      validate: { isIn: [['ENGINEERING', 'CIVIL_SERVICES', 'MANAGEMENT', 'MEDICAL', 'OTHER']] }
+    },
+    track: {
+      type: DataTypes.STRING(20),
+      allowNull: false,
+      defaultValue: 'COMPETITIVE',
+      validate: { isIn: [['COMPETITIVE', 'COLLEGE']] }
+    },
     description: {
       type: DataTypes.TEXT,
       allowNull: true

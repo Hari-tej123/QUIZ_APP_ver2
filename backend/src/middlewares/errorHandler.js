@@ -27,9 +27,17 @@ module.exports = (err, req, res, next) => {
     error = new AppError('Your token has expired. Please log in again.', 401);
   }
 
-  res.status(error.statusCode || err.statusCode).json({
+  if (!error.isOperational) {
+    error = new AppError('Something went wrong on the server.', 500);
+  }
+
+  const body = {
     status: error.status || err.status,
-    message: error.message || 'Something went wrong on the server',
-    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
-  });
+    message: error.message || 'Something went wrong on the server'
+  };
+  // Forward field-level validation errors when present
+  if (error.errors || err.errors) {
+    body.errors = error.errors || err.errors;
+  }
+  res.status(error.statusCode || err.statusCode).json(body);
 };

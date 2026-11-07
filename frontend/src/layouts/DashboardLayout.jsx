@@ -63,7 +63,7 @@ export default function DashboardLayout({ children }) {
     navigate('/login');
   };
 
-  const role = user?.role || 'student';
+  const role = ({ STUDENT: 'student', EDUCATOR: 'educator', ADMIN: 'admin' })[user?.role] || user?.role || 'student';
 
   // Sidebar links based on role
   const sidebarLinks = {
@@ -73,6 +73,9 @@ export default function DashboardLayout({ children }) {
       { path: '/admin/contributors', label: 'Educators & Applicants', icon: <Sparkles className="w-5 h-5" /> },
       { path: '/admin/payout-settings', label: 'Payouts & Settings', icon: <Settings className="w-5 h-5" /> },
       { path: '/admin/faculty', label: 'Faculty Management', icon: <Users className="w-5 h-5" /> },
+      { path: '/admin/access', label: 'User Management', icon: <Shield className="w-5 h-5" /> },
+      { path: '/admin/operations', label: 'Applications & Quiz Review', icon: <ListChecks className="w-5 h-5" /> },
+      { path: '/questions?view=mine', label: 'Question Management', icon: <HelpCircle className="w-5 h-5" /> },
       { path: '/admin/exams', label: 'Exam Hierarchy', icon: <BookMarked className="w-5 h-5" /> },
       { path: '/design-system', label: 'Design System', icon: <Layers className="w-5 h-5" /> }
     ],
@@ -84,16 +87,30 @@ export default function DashboardLayout({ children }) {
       { path: '/contributor/submissions', label: 'Review Pipeline', icon: <Clock className="w-5 h-5" /> },
       { path: '/contributor/payouts', label: 'Earnings & Payouts', icon: <Award className="w-5 h-5" /> }
     ],
+    educator: [
+      { path: '/contributor', label: 'Educator Dashboard', icon: <LayoutDashboard className="w-5 h-5" /> },
+      { path: '/contributor/quizzes/create', label: 'Create Question Set', icon: <Sparkles className="w-5 h-5" /> },
+      { path: '/contributor/quizzes', label: 'Authored Quizzes', icon: <ListChecks className="w-5 h-5" /> },
+      { path: '/questions?view=mine', label: 'Question Bank', icon: <HelpCircle className="w-5 h-5" /> },
+      { path: '/contributor/materials', label: 'Topic Study Materials', icon: <FileText className="w-5 h-5" /> },
+      { path: '/contributor/submissions', label: 'Review Pipeline', icon: <Clock className="w-5 h-5" /> },
+      ...(user?.educatorType === 'COLLEGE' || user?.educatorType === 'BOTH' ? [
+        { path: '/faculty/courses', label: 'College Courses', icon: <BookOpen className="w-5 h-5" /> }
+      ] : [])
+    ],
     faculty: [
       { path: '/faculty', label: 'Dashboard', icon: <LayoutDashboard className="w-5 h-5" /> },
-      { path: '/faculty/courses', label: 'Courses & Quizzes', icon: <BookOpen className="w-5 h-5" /> }
+      { path: '/faculty/courses', label: 'Courses & Quizzes', icon: <BookOpen className="w-5 h-5" /> },
+      { path: '/questions?view=create', label: 'Add Question', icon: <HelpCircle className="w-5 h-5" /> },
+      { path: '/questions?view=mine', label: 'My Questions', icon: <ListChecks className="w-5 h-5" /> }
     ],
     student: [
       { path: '/student', label: 'Dashboard', icon: <LayoutDashboard className="w-5 h-5" /> },
       { path: '/student/exams', label: 'Competitive Exams', icon: <BookMarked className="w-5 h-5" />, track: 'competitive' },
       { path: '/student/courses', label: 'College Courses', icon: <BookOpen className="w-5 h-5" />, track: 'college' },
       { path: '/student/revision', label: 'Mistakes & Bookmarks', icon: <Sparkles className="w-5 h-5" /> },
-      { path: '/student/performance', label: 'Performance & Ranks', icon: <Award className="w-5 h-5" /> }
+      { path: '/student/performance', label: 'Performance & Ranks', icon: <Award className="w-5 h-5" /> },
+      { path: '/student/access-request', label: 'Request Educator Access', icon: <Shield className="w-5 h-5" /> }
     ]
   };
 
@@ -111,6 +128,9 @@ export default function DashboardLayout({ children }) {
       if (p === 'payouts') return 'Earnings & Payouts';
       if (p === 'materials') return 'Study Materials';
       if (p === 'contributors') return 'Educator Directory';
+      if (p === 'access') return 'Access Approvals';
+      if (p === 'access-request') return 'Access Request';
+      if (p === 'questions') return 'Question Management';
       return p.charAt(0).toUpperCase() + p.slice(1);
     }).join(' / ');
   };
@@ -131,7 +151,7 @@ export default function DashboardLayout({ children }) {
                 Quizzify
               </span>
               <span className="text-[9px] font-bold uppercase tracking-widest text-primary-600 mt-0.5">
-                {role === 'student' ? 'Student Workspace' : role === 'contributor' ? 'Verified Educator' : role === 'faculty' ? 'Faculty Portal' : 'Administrator'}
+                {role === 'student' ? 'Student Workspace' : ['contributor', 'educator'].includes(role) ? 'Verified Educator' : role === 'faculty' ? 'Faculty Portal' : 'Administrator'}
               </span>
             </div>
           </Link>
@@ -183,7 +203,7 @@ export default function DashboardLayout({ children }) {
             Navigation Menu
           </span>
           {activeLinks.map((link) => {
-            const isActive = location.pathname === link.path;
+            const isActive = `${location.pathname}${location.search}` === link.path;
             let activeStyle = 'bg-primary-50 text-primary-700 border border-primary-200 font-bold shadow-xs';
             if (link.track === 'college') {
               activeStyle = 'bg-amber-50 text-amber-800 border border-amber-200 font-bold shadow-xs';
@@ -266,7 +286,7 @@ export default function DashboardLayout({ children }) {
 
           <nav className="flex-1 px-4 py-6 space-y-1.5 overflow-y-auto">
             {activeLinks.map((link) => {
-              const isActive = location.pathname === link.path;
+              const isActive = `${location.pathname}${location.search}` === link.path;
               return (
                 <Link
                   key={link.path}

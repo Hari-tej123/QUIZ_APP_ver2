@@ -139,7 +139,7 @@ export default function LandingPage() {
               <Button
                 variant="primary"
                 size="sm"
-                onClick={() => navigate(user?.role === 'admin' ? '/admin' : user?.role === 'faculty' ? '/faculty' : '/student')}
+                onClick={() => navigate(user?.role === 'ADMIN' ? '/admin' : user?.role === 'EDUCATOR' ? '/questions' : '/student')}
                 className="gap-2"
               >
                 Go to Dashboard <ArrowRight className="w-4 h-4" />

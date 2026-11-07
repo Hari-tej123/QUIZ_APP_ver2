@@ -83,7 +83,7 @@ export default function ExamManagement() {
   const [deleting, setDeleting] = useState(false);
 
   // Form state
-  const initialForm = { name: '', code: '', description: '', logo_url: '', status: 'active', year: '', is_active: true };
+  const initialForm = { name: '', code: '', description: '', logo_url: '', status: 'active', category: 'ENGINEERING', track: 'COMPETITIVE', year: '', is_active: true };
   const [form, setForm] = useState(initialForm);
 
   // ─── Fetch helpers ────────────────────────────────────────────────────────
@@ -155,6 +155,8 @@ export default function ExamManagement() {
       description: item.description || '',
       logo_url: item.logo_url || '',
       status: item.status || 'active',
+      category: item.category || 'ENGINEERING',
+      track: item.track || 'COMPETITIVE',
       year: item.year || '',
       is_active: item.is_active !== undefined ? item.is_active : true,
     });
@@ -167,9 +169,9 @@ export default function ExamManagement() {
     try {
       if (view === 'exams') {
         if (formModal.mode === 'create') {
-          await apiClient.post('/exams', { name: form.name, code: form.code, description: form.description, logo_url: form.logo_url, status: form.status });
+          await apiClient.post('/exams', { name: form.name, code: form.code, description: form.description, logo_url: form.logo_url, status: form.status, category: form.category, track: form.track });
         } else {
-          await apiClient.put(`/exams/${formModal.data.id}`, { name: form.name, description: form.description, logo_url: form.logo_url, status: form.status });
+          await apiClient.put(`/exams/${formModal.data.id}`, { name: form.name, description: form.description, logo_url: form.logo_url, status: form.status, category: form.category, track: form.track });
         }
         fetchExams();
       } else if (view === 'editions') {
@@ -298,6 +300,8 @@ export default function ExamManagement() {
             <Input label="Exam Code" value={form.code} onChange={e => setForm(f => ({ ...f, code: e.target.value }))} placeholder="e.g. GATE (unique, uppercase)" required />
           )}
           <Textarea label="Description" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="Brief description..." rows={3} />
+          <label className="text-xs font-semibold text-neutral-600">Category<select value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))} className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm"><option value="ENGINEERING">Engineering</option><option value="CIVIL_SERVICES">Civil Services</option><option value="MANAGEMENT">Management</option><option value="OTHER">Other</option></select></label>
+          <label className="text-xs font-semibold text-neutral-600">Track<select value={form.track} onChange={e => setForm(f => ({ ...f, track: e.target.value }))} className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm"><option value="COMPETITIVE">Competitive</option><option value="COLLEGE">College</option></select></label>
           <Input label="Logo URL (optional)" value={form.logo_url} onChange={e => setForm(f => ({ ...f, logo_url: e.target.value }))} placeholder="https://..." />
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-semibold text-neutral-600 uppercase tracking-wider">Status</label>

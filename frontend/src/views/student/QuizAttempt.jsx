@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
-import apiClient from '../../utils/apiClient';
+import { BASE_URL } from '../../utils/apiClient';
 import api from '../../utils/api';
 import { useToast } from '../../context/ToastContext';
 import { Button, Card, Badge, Modal, ProgressBar } from '../../components/UI';
@@ -63,7 +63,7 @@ export default function QuizAttempt() {
       const payload = { mode: urlMode };
       if (action) payload.action = action;
 
-      const res = await api.post(`/student/quizzes/${quizId}/start`, payload);
+      const res = await api.post(`/quizzes/${quizId}/attempts`, payload);
       const data = res?.attempt || res?.questions ? res : (res?.data || res);
 
       if (data.needsDecision) {
@@ -104,7 +104,13 @@ export default function QuizAttempt() {
     const ansMap = {};
     if (data.savedAnswers?.length > 0) {
       data.savedAnswers.forEach(a => {
-        ansMap[a.questionId] = a.selectedOption;
+        const question = qs.find(item => item.id === a.questionId);
+        if (question?.questionType === 'multiple-select') {
+          try { ansMap[a.questionId] = JSON.parse(a.selectedOption); }
+          catch { ansMap[a.questionId] = []; }
+        } else {
+          ansMap[a.questionId] = a.selectedOption;
+        }
       });
     }
     setSelectedAnswers(ansMap);
@@ -159,14 +165,20 @@ export default function QuizAttempt() {
     if (!currentQ || !attempt) return;
 
     const qId = currentQ.id;
-    setSelectedAnswers(prev => ({ ...prev, [qId]: option }));
+    const answer = currentQ.questionType === 'multiple-select'
+      ? (() => {
+          const current = Array.isArray(selectedAnswers[qId]) ? selectedAnswers[qId] : [];
+          return current.includes(option) ? current.filter(value => value !== option) : [...current, option];
+        })()
+      : option;
+    setSelectedAnswers(prev => ({ ...prev, [qId]: answer }));
 
     if (quizMeta.mode === 'practice') {
       // Practice mode: instant check
       try {
-        const res = await api.post(`/student/attempts/${attempt.id}/check-question`, {
+        const res = await api.post(`/attempts/${attempt.id}/check-answer`, {
           questionId: qId,
-          selectedOption: option
+          selectedOption: answer
         });
         const feedback = res?.data || res;
         setPracticeFeedback(prev => ({ ...prev, [qId]: feedback }));
@@ -176,9 +188,9 @@ export default function QuizAttempt() {
     } else {
       // Mock mode: save answer silently
       try {
-        await api.post(`/student/attempts/${attempt.id}/save`, {
+        await api.post(`/attempts/${attempt.id}/answers`, {
           questionId: qId,
-          selectedOption: option
+          selectedOption: answer
         });
       } catch (err) {
         console.error('Autosave error:', err);
@@ -209,10 +221,10 @@ export default function QuizAttempt() {
     setSubmitting(true);
     try {
       if (timerRef.current) clearInterval(timerRef.current);
-      await api.post(`/student/attempts/${attempt.id}/submit`);
+      await api.post(`/attempts/${attempt.id}/submit`);
       
       // Fetch full detailed breakdown
-      const res = await api.get(`/student/attempts/${attempt.id}/results`);
+      const res = await api.get(`/attempts/${attempt.id}/results`);
       setResultsData(res?.data || res);
       setSubmitModalOpen(false);
       setScreenStatus('results');
@@ -394,10 +406,15 @@ export default function QuizAttempt() {
 
               {/* Options Breakdown */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                {['A', 'B', 'C', 'D'].map(opKey => {
-                  const opText = q[`option${opKey}`];
-                  const isUserPick = q.selectedOption === opKey;
-                  const isCorrect = q.correctOption === opKey;
+                {(q.options?.length ? q.options : ['A', 'B', 'C', 'D'].map(key => q[`option${key}`]).filter(Boolean)).map((opText, index) => {
+                  const opKey = String.fromCharCode(65 + index);
+                  let selected = q.selectedOption;
+                  if (typeof selected === 'string' && selected.startsWith('[')) {
+                    try { selected = JSON.parse(selected); } catch { selected = []; }
+                  }
+                  const isUserPick = Array.isArray(selected) ? selected.includes(opKey) : selected === opKey;
+                  const correctAnswers = q.correctAnswers?.length ? q.correctAnswers : [q.correctOption];
+                  const isCorrect = correctAnswers.includes(opKey);
 
                   let style = 'bg-neutral-50 border-neutral-200 text-neutral-700';
                   if (isCorrect) style = 'bg-emerald-50 border-emerald-300 text-emerald-900 font-bold';
@@ -535,50 +552,58 @@ export default function QuizAttempt() {
             <div className="text-base sm:text-lg font-bold text-neutral-900 leading-relaxed">
               {currentQ.questionText}
             </div>
+            {currentQ.imageUrl && <img src={`${BASE_URL.replace('/api', '')}${currentQ.imageUrl}`} alt="Question reference" className="max-h-80 max-w-full rounded-lg object-contain" />}
 
-            {/* Multiple Choice Options */}
-            <div className="space-y-3">
-              {['A', 'B', 'C', 'D'].map(opKey => {
-                const opText = currentQ[`option${opKey}`];
-                const isSelected = currentAnswer === opKey;
-                const isPractice = quizMeta.mode === 'practice';
-                const fb = currentFeedback;
+            {['numeric', 'short-answer'].includes(currentQ.questionType) ? (
+              <label className="block text-xs font-bold text-neutral-700">{currentQ.questionType === 'numeric' ? 'Numeric answer' : 'Your answer'}
+                <input
+                  type={currentQ.questionType === 'numeric' ? 'number' : 'text'}
+                  value={currentAnswer || ''}
+                  maxLength={500}
+                  onChange={event => handleSelectOption(event.target.value)}
+                  className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-3 text-sm font-medium"
+                />
+              </label>
+            ) : (
+              <div className="space-y-3">
+                {(currentQ.options?.length ? currentQ.options : ['A', 'B', 'C', 'D'].map(key => currentQ[`option${key}`]).filter(Boolean)).map((opText, index) => {
+                  const opKey = String.fromCharCode(65 + index);
+                  const isSelected = Array.isArray(currentAnswer) ? currentAnswer.includes(opKey) : currentAnswer === opKey;
+                  const isPractice = quizMeta.mode === 'practice';
+                  const fb = currentFeedback;
+                  const correctAnswers = fb?.correctAnswers?.length ? fb.correctAnswers : [fb?.correctOption];
+                  let btnStyle = 'border-neutral-200 hover:border-primary-300 hover:bg-neutral-50/60 bg-white text-neutral-800';
 
-                let btnStyle = 'border-neutral-200 hover:border-primary-300 hover:bg-neutral-50/60 bg-white text-neutral-800';
-
-                if (isSelected && !isPractice) {
-                  btnStyle = 'border-primary-600 bg-primary-50/80 text-primary-950 ring-2 ring-primary-500/20 font-bold';
-                }
-
-                if (isPractice && fb) {
-                  if (fb.correctOption === opKey) {
-                    btnStyle = 'border-emerald-500 bg-emerald-50 text-emerald-950 ring-2 ring-emerald-500/20 font-bold';
-                  } else if (isSelected && !fb.isCorrect) {
-                    btnStyle = 'border-rose-500 bg-rose-50 text-rose-950 font-semibold';
+                  if (isSelected && !isPractice) {
+                    btnStyle = 'border-primary-600 bg-primary-50/80 text-primary-950 ring-2 ring-primary-500/20 font-bold';
                   }
-                }
 
-                return (
-                  <button
-                    key={opKey}
-                    type="button"
-                    onClick={() => handleSelectOption(opKey)}
-                    className={`w-full p-4 rounded-2xl border text-left text-xs sm:text-sm transition-all flex items-center justify-between cursor-pointer ${btnStyle}`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="w-6 h-6 rounded-lg bg-neutral-100 text-neutral-800 font-bold text-xs flex items-center justify-center shrink-0">
-                        {opKey}
-                      </span>
-                      <span>{opText}</span>
-                    </div>
+                  if (isPractice && fb) {
+                    if (correctAnswers.includes(opKey)) {
+                      btnStyle = 'border-emerald-500 bg-emerald-50 text-emerald-950 ring-2 ring-emerald-500/20 font-bold';
+                    } else if (isSelected && !fb.isCorrect) {
+                      btnStyle = 'border-rose-500 bg-rose-50 text-rose-950 font-semibold';
+                    }
+                  }
 
-                    {isPractice && fb && fb.correctOption === opKey && (
-                      <Check className="w-5 h-5 text-emerald-600 shrink-0" />
-                    )}
-                  </button>
-                );
-              })}
-            </div>
+                  return (
+                    <button
+                      key={opKey}
+                      type="button"
+                      onClick={() => handleSelectOption(opKey)}
+                      aria-pressed={isSelected}
+                      className={`w-full p-4 rounded-2xl border text-left text-xs sm:text-sm transition-all flex items-center justify-between cursor-pointer ${btnStyle}`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="w-6 h-6 rounded-lg bg-neutral-100 text-neutral-800 font-bold text-xs flex items-center justify-center shrink-0">{opKey}</span>
+                        <span>{opText}</span>
+                      </div>
+                      {isPractice && fb && correctAnswers.includes(opKey) && <Check className="w-5 h-5 text-emerald-600 shrink-0" />}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
 
             {/* Instant Practice Explanation Box */}
             {quizMeta.mode === 'practice' && currentFeedback && (
@@ -596,7 +621,7 @@ export default function QuizAttempt() {
                   ) : (
                     <>
                       <XCircle className="w-5 h-5 text-rose-600" />
-                      <span>Incorrect. Correct Option: {currentFeedback.correctOption}</span>
+                      <span>Incorrect. Correct Answer: {(currentFeedback.correctAnswers || [currentFeedback.correctOption]).filter(Boolean).join(', ')}</span>
                     </>
                   )}
                 </div>

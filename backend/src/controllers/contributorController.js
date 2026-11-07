@@ -12,10 +12,70 @@ const {
   ExamTopic,
   Course,
   Subtopic,
-  QuizAttempt
+  QuizAttempt,
+  AuditLog
 } = require('../config/database');
 const { BadRequestError, NotFoundError, ForbiddenError } = require('../utils/errors');
 const xlsx = require('xlsx');
+const { z } = require('zod');
+const { Op } = require('sequelize');
+
+const emptyToNull = (val) => (val === '' || val === undefined ? null : val);
+
+const quizQuestionSchema = z.object({
+  id: z.any().optional(),
+  questionText: z.string().trim().min(1, 'Question text cannot be empty.').max(5000),
+  optionA: z.string().trim().min(1, 'Option A is required.').max(1000),
+  optionB: z.string().trim().min(1, 'Option B is required.').max(1000),
+  optionC: z.string().trim().min(1, 'Option C is required.').max(1000),
+  optionD: z.string().trim().min(1, 'Option D is required.').max(1000),
+  correctOption: z.enum(['A', 'B', 'C', 'D'], {
+    errorMap: () => ({ message: 'Correct option must be A, B, C, or D.' })
+  }),
+  explanation: z.preprocess(emptyToNull, z.string().max(5000).optional().nullable()),
+  difficulty: z.preprocess(
+    (val) => (typeof val === 'string' ? val.toLowerCase() : val),
+    z.enum(['easy', 'medium', 'hard']).default('medium')
+  ),
+  tags: z.preprocess(
+    (val) => (val === '' ? null : val),
+    z.union([z.string().max(500), z.array(z.string().max(80)).max(20)]).optional().nullable()
+  ),
+  marks: z.coerce.number().int().min(1, 'Marks must be at least 1.').max(100).default(1)
+}).strip();
+
+const quizDraftSchema = z.object({
+  title: z.string().trim().min(3, 'Title must be at least 3 characters.').max(180),
+  description: z.preprocess(emptyToNull, z.string().max(3000).optional().nullable()),
+  duration: z.coerce.number().int().min(1, 'Duration must be at least 1 minute.').max(600),
+  track: z.preprocess(
+    (val) => (typeof val === 'string' ? val.toUpperCase() : val),
+    z.enum(['COMPETITIVE', 'COLLEGE']).optional()
+  ),
+  trackType: z.preprocess(
+    (val) => (typeof val === 'string' ? val.toLowerCase() : val),
+    z.enum(['competitive', 'college']).default('competitive')
+  ),
+  examId: z.preprocess(emptyToNull, z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, 'Invalid exam ID.').optional().nullable()),
+  examEditionId: z.preprocess(emptyToNull, z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, 'Invalid edition ID.').optional().nullable()),
+  examSubjectId: z.preprocess(emptyToNull, z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, 'Invalid subject ID.').optional().nullable()),
+  examTopicId: z.preprocess(emptyToNull, z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, 'Invalid topic ID.').optional().nullable()),
+  courseId: z.preprocess(emptyToNull, z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, 'Invalid course ID.').optional().nullable()),
+  subtopicId: z.preprocess(emptyToNull, z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, 'Invalid subtopic ID.').optional().nullable()),
+  instituteId: z.preprocess(emptyToNull, z.string().max(100).optional().nullable()),
+  questions: z.array(quizQuestionSchema).min(1, 'At least one question is required.').max(200)
+}).strip().superRefine((data, ctx) => {
+  const normalizedTrack = (data.track || (data.trackType ? data.trackType.toUpperCase() : 'COMPETITIVE'));
+  if (normalizedTrack === 'COLLEGE') {
+    if (!data.courseId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['courseId'],
+        message: 'Course is required for College track quizzes.'
+      });
+    }
+  }
+});
 
 // ─── Get Contributor Dashboard Statistics ────────────────────────────────────
 exports.getDashboardStats = async (req, res, next) => {
@@ -129,7 +189,7 @@ exports.getMyQuizzes = async (req, res, next) => {
   try {
     const contributorId = req.user.id;
     const quizzes = await Quiz.findAll({
-      where: { authorId: contributorId },
+      where: { [Op.or]: [{ ownerId: contributorId }, { authorId: contributorId }] },
       include: [
         { model: Question, as: 'questions' },
         { model: ContentSubmission, as: 'submission' },
@@ -153,57 +213,92 @@ exports.createQuiz = async (req, res, next) => {
   try {
     const contributorId = req.user.id;
     const user = await User.findByPk(contributorId);
+    const parsed = quizDraftSchema.safeParse(req.body);
+    if (!parsed.success) {
+      const formattedErrors = parsed.error.issues.map(issue => ({
+        field: issue.path.join('.'),
+        message: issue.message
+      }));
+      return res.status(400).json({
+        success: false,
+        status: 'fail',
+        message: parsed.error.issues[0]?.message || 'Invalid quiz data.',
+        errors: formattedErrors
+      });
+    }
 
     const {
       title,
       description,
       duration,
-      trackType, // 'competitive' or 'college'
-      // Competitive track IDs
+      track,
+      trackType,
+      examId,
       examEditionId,
       examSubjectId,
       examTopicId,
-      // College track IDs
       courseId,
       subtopicId,
-      questions // Array of question objects
-    } = req.body;
+      questions
+    } = parsed.data;
 
-    if (!title || !duration || !Array.isArray(questions) || questions.length === 0) {
-      return next(new BadRequestError('Please provide quiz title, duration, and at least one question.'));
+    const normalizedTrack = (track || (trackType ? trackType.toUpperCase() : 'COMPETITIVE'));
+    const isCollege = normalizedTrack === 'COLLEGE';
+    const isAdmin = req.user.role === 'ADMIN';
+    const quizStatus = isAdmin ? 'PUBLISHED' : 'DRAFT';
+
+    // If examId is not directly passed but examEditionId is, try to resolve examId
+    let resolvedExamId = examId || null;
+    if (!resolvedExamId && examEditionId && !isCollege) {
+      const edition = await ExamEdition.findByPk(examEditionId);
+      if (edition) resolvedExamId = edition.examId;
     }
 
-    // Determine publish status: if user is admin/faculty => approved immediately; if contributor => pending review
-    const isAutoApproved = req.user.role === 'admin' || req.user.role === 'faculty';
-    const status = isAutoApproved ? 'approved' : 'pending';
-    const isPublished = isAutoApproved;
+    // Determine instituteId: if college track, take user's instituteId if faculty
+    let resolvedInstituteId = null;
+    if (isCollege) {
+      resolvedInstituteId = req.user.instituteId || null;
+    }
 
     // Create the Quiz
     const quiz = await Quiz.create({
       title,
-      description,
+      description: description || null,
       duration: parseInt(duration, 10),
+      durationMin: parseInt(duration, 10),
+      ownerId: contributorId,
       authorId: contributorId,
       contributorAttribution: user.name + (user.badge ? ` (${user.badge})` : ' (Educator)'),
-      status,
-      isPublished,
-      trackType: trackType || 'competitive',
-      examEditionId: trackType === 'competitive' ? examEditionId || null : null,
-      examSubjectId: trackType === 'competitive' ? examSubjectId || null : null,
-      examTopicId: trackType === 'competitive' ? examTopicId || null : null,
-      courseId: trackType === 'college' ? courseId || null : null,
-      subtopicId: trackType === 'college' ? subtopicId || null : null
+      status: quizStatus,
+      isPublished: isAdmin,
+      track: normalizedTrack,
+      instituteId: resolvedInstituteId,
+      examId: !isCollege ? resolvedExamId : null,
+      examEditionId: !isCollege ? examEditionId || null : null,
+      examSubjectId: !isCollege ? examSubjectId || null : null,
+      examTopicId: !isCollege ? examTopicId || null : null,
+      courseId: isCollege ? courseId || null : null,
+      subtopicId: isCollege ? subtopicId || null : null
     });
 
     // Create Questions
     const questionsToInsert = questions.map(q => ({
       quizId: quiz.id,
-      questionText: q.questionText,
+      questionText: q.questionText.trim(),
       optionA: q.optionA,
       optionB: q.optionB,
       optionC: q.optionC,
       optionD: q.optionD,
       correctOption: q.correctOption,
+      questionType: 'mcq',
+      options: [q.optionA, q.optionB, q.optionC, q.optionD],
+      correctAnswers: [q.correctOption],
+      track: normalizedTrack,
+      examId: !isCollege ? resolvedExamId : null,
+      courseId: isCollege ? courseId || null : null,
+      instituteId: resolvedInstituteId,
+      status: isAdmin ? 'published' : 'draft',
+      createdBy: contributorId,
       marks: q.marks ? parseInt(q.marks, 10) : 1,
       explanation: q.explanation || null,
       difficulty: q.difficulty || 'medium',
@@ -218,22 +313,22 @@ exports.createQuiz = async (req, res, next) => {
       contentType: 'quiz',
       quizId: quiz.id,
       title: quiz.title,
-      trackType: trackType || 'competitive',
+      trackType: normalizedTrack.toLowerCase(),
       targetDetails: JSON.stringify({
         duration: quiz.duration,
         questionCount: questions.length,
         examTopicId,
         subtopicId,
-        courseId
+        courseId,
+        track: normalizedTrack
       }),
-      status: isAutoApproved ? 'approved' : 'pending'
+      status: isAdmin ? 'approved' : 'pending'
     });
 
     res.status(201).json({
+      success: true,
       status: 'success',
-      message: isAutoApproved
-        ? 'Quiz created and published successfully.'
-        : 'Quiz submitted successfully for Admin review!',
+      message: isAdmin ? 'Quiz created and published.' : 'Quiz saved as draft.',
       data: {
         quiz,
         submission
@@ -408,7 +503,7 @@ exports.createStudyMaterial = async (req, res, next) => {
       fileUrl = `/uploads/${req.file.filename}`;
     }
 
-    const isAutoApproved = req.user.role === 'admin' || req.user.role === 'faculty';
+    const isAutoApproved = req.user.role === 'ADMIN';
     const status = isAutoApproved ? 'approved' : 'pending';
 
     const material = await StudyMaterial.create({

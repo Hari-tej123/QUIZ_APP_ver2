@@ -42,27 +42,31 @@ module.exports = {
     const quiz4Id = 'e4444444-4444-4444-4444-444444444444';
 
     const passwordHash = bcrypt.hashSync('password123', 10);
+    const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
+    const adminPassword = process.env.ADMIN_PASSWORD;
     const now = new Date();
 
     // 1. Seed Users
     await queryInterface.bulkInsert('users', [
-      {
+      ...(adminEmail && adminPassword && adminPassword.length >= 16 ? [{
         id: adminId,
         name: 'Super Admin',
-        email: 'admin@quizapp.com',
-        password: passwordHash,
-        role: 'admin',
+        email: adminEmail,
+        password: bcrypt.hashSync(adminPassword, 10),
+        role: 'ADMIN',
+        educatorType: null,
         mustChangePassword: false,
         status: 'active',
         createdAt: now,
         updatedAt: now
-      },
+      }] : []),
       {
         id: faculty1Id,
         name: 'Dr. Jane Smith',
         email: 'faculty1@quizapp.com',
         password: passwordHash,
-        role: 'faculty',
+        role: 'EDUCATOR',
+        educatorType: 'COLLEGE',
         department: 'Computer Science',
         subject: 'Algorithms & Systems',
         phone: '1234567890',
@@ -76,7 +80,8 @@ module.exports = {
         name: 'Prof. Alan Turing',
         email: 'faculty2@quizapp.com',
         password: passwordHash,
-        role: 'faculty',
+        role: 'EDUCATOR',
+        educatorType: 'COLLEGE',
         department: 'Mathematics',
         subject: 'Discrete Structures & Linear Algebra',
         phone: '9876543210',
@@ -90,7 +95,7 @@ module.exports = {
         name: 'John Doe',
         email: 'student1@quizapp.com',
         password: passwordHash,
-        role: 'student',
+        role: 'STUDENT',
         rollNumber: 'CS-2026-001',
         mustChangePassword: false,
         status: 'active',
@@ -102,7 +107,7 @@ module.exports = {
         name: 'Alice Johnson',
         email: 'student2@quizapp.com',
         password: passwordHash,
-        role: 'student',
+        role: 'STUDENT',
         rollNumber: 'CS-2026-002',
         mustChangePassword: false,
         status: 'active',
@@ -114,7 +119,7 @@ module.exports = {
         name: 'Bob Miller',
         email: 'student3@quizapp.com',
         password: passwordHash,
-        role: 'student',
+        role: 'STUDENT',
         rollNumber: 'CS-2026-003',
         mustChangePassword: false,
         status: 'active',
@@ -126,7 +131,7 @@ module.exports = {
         name: 'Charlie Davis',
         email: 'student4@quizapp.com',
         password: passwordHash,
-        role: 'student',
+        role: 'STUDENT',
         rollNumber: 'MA-2026-001',
         mustChangePassword: false,
         status: 'active',
@@ -138,7 +143,7 @@ module.exports = {
         name: 'Diana Prince',
         email: 'student5@quizapp.com',
         password: passwordHash,
-        role: 'student',
+        role: 'STUDENT',
         rollNumber: 'MA-2026-002',
         mustChangePassword: false,
         status: 'active',

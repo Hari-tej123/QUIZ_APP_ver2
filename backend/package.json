@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "seed:exams": "node src/seeders/seedExamsAndDemo.js",
+    "test": "node --test"
   },
   "keywords": [],
   "author": "",
@@ -14,20 +15,27 @@
   "type": "commonjs",
   "dependencies": {
     "bcryptjs": "^3.0.3",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "express-rate-limit": "^8.6.2",
+    "google-auth-library": "^11.3.3",
     "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.3",
     "multer": "^2.2.0",
     "pg": "^8.23.0",
     "pg-hstore": "^2.3.4",
+    "sanitize-html": "^2.18.1",
     "sequelize": "^6.37.8",
-    "xlsx": "^0.18.5"
+    "xlsx": "npm:@e965/xlsx@^0.20.3",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "nodemon": "^3.1.14",
     "sequelize-cli": "^6.6.5"
+  },
+  "overrides": {
+    "uuid": "11.1.1"
   }
 }

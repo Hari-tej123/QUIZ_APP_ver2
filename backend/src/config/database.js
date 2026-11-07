@@ -33,6 +33,11 @@ const ContentSubmission = require('../models/ContentSubmission')(sequelize);
 const Payout = require('../models/Payout')(sequelize);
 const PlatformSetting = require('../models/PlatformSetting')(sequelize);
 const StudentQuestionRecord = require('../models/StudentQuestionRecord')(sequelize);
+const FacultyRequest = require('../models/FacultyRequest')(sequelize);
+const AuditLog = require('../models/AuditLog')(sequelize);
+const Notification = require('../models/Notification')(sequelize);
+const EducatorApplication = require('../models/EducatorApplication')(sequelize);
+const EducatorInvite = require('../models/EducatorInvite')(sequelize);
 
 // ─── Course & Faculty Associations ──────────────────────────────────────────
 User.hasMany(Course, { foreignKey: 'facultyId', as: 'managedCourses' });
@@ -153,6 +158,27 @@ Payout.belongsTo(User, { foreignKey: 'contributorId', as: 'contributor' });
 User.hasMany(StudentQuestionRecord, { foreignKey: 'studentId', as: 'questionRecords' });
 StudentQuestionRecord.belongsTo(User, { foreignKey: 'studentId', as: 'student' });
 
+User.hasMany(FacultyRequest, { foreignKey: 'userId', as: 'accessRequests' });
+FacultyRequest.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+User.hasMany(FacultyRequest, { foreignKey: 'reviewedBy', as: 'reviewedAccessRequests' });
+FacultyRequest.belongsTo(User, { foreignKey: 'reviewedBy', as: 'reviewer' });
+User.hasMany(AuditLog, { foreignKey: 'actorId', as: 'auditEntries' });
+AuditLog.belongsTo(User, { foreignKey: 'actorId', as: 'actor' });
+User.hasMany(Notification, { foreignKey: 'userId', as: 'notifications' });
+Notification.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+User.hasMany(Question, { foreignKey: 'createdBy', as: 'createdQuestions' });
+Question.belongsTo(User, { foreignKey: 'createdBy', as: 'creator' });
+User.hasMany(EducatorApplication, { foreignKey: 'userId', as: 'educatorApplications' });
+EducatorApplication.belongsTo(User, { foreignKey: 'userId', as: 'applicant' });
+User.hasMany(EducatorApplication, { foreignKey: 'reviewedBy', as: 'reviewedEducatorApplications' });
+EducatorApplication.belongsTo(User, { foreignKey: 'reviewedBy', as: 'reviewer' });
+User.hasMany(EducatorInvite, { foreignKey: 'invitedBy', as: 'sentEducatorInvites' });
+EducatorInvite.belongsTo(User, { foreignKey: 'invitedBy', as: 'inviter' });
+User.hasMany(Quiz, { foreignKey: 'ownerId', as: 'ownedQuizzes' });
+Quiz.belongsTo(User, { foreignKey: 'ownerId', as: 'owner' });
+User.hasMany(Quiz, { foreignKey: 'publishedBy', as: 'publishedQuizzes' });
+Quiz.belongsTo(User, { foreignKey: 'publishedBy', as: 'publisher' });
+
 Question.hasMany(StudentQuestionRecord, { foreignKey: 'questionId', as: 'records', onDelete: 'CASCADE' });
 StudentQuestionRecord.belongsTo(Question, { foreignKey: 'questionId', as: 'question' });
 
@@ -178,5 +204,10 @@ module.exports = {
   ContentSubmission,
   Payout,
   PlatformSetting,
-  StudentQuestionRecord
+  StudentQuestionRecord,
+  FacultyRequest,
+  AuditLog,
+  Notification,
+  EducatorApplication,
+  EducatorInvite
 };

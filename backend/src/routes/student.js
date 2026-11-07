@@ -39,5 +39,13 @@ router.get('/leaderboard', studentController.getLeaderboard);
 // Exam preference routes
 router.get('/me/exam-preferences', studentController.getExamPreferences);
 router.post('/me/exam-preferences', studentController.setExamPreferences);
+router.put('/me/exam-preferences', studentController.setExamPreferences);
+router.post('/exams/register', studentController.setExamPreferences);
+router.post('/exams/:examId', studentController.addExamPreference);
+router.delete('/exams/:examId', studentController.removeExamPreference);
+
+// Student Quizzes & Topic-wise content
+router.get('/quizzes', studentController.getStudentQuizzes);
+router.get('/exams/:examId/topics', studentController.getExamTopicsWithCounts);
 
 module.exports = router;

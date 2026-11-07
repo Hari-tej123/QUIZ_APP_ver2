@@ -1,4 +1,5 @@
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 const {
   User,
   Course,
@@ -14,6 +15,8 @@ const {
   ContentSubmission,
   Payout,
   PlatformSetting,
+  AuditLog,
+  EducatorApplication,
   sequelize
 } = require('../config/database');
 const { BadRequestError, ConflictError, NotFoundError } = require('../utils/errors');
@@ -32,19 +35,27 @@ exports.addFaculty = async (req, res, next) => {
       return next(new ConflictError('Email already in use.'));
     }
 
-    const rawPassword = initialPassword || `Faculty@${Math.floor(1000 + Math.random() * 9000)}`;
+    const rawPassword = initialPassword || crypto.randomBytes(24).toString('base64url');
     const hashedPassword = await bcrypt.hash(rawPassword, 10);
 
     const newFaculty = await User.create({
       name,
       email,
       password: hashedPassword,
-      role: 'faculty',
+      role: 'EDUCATOR',
+      educatorType: 'COLLEGE',
       department,
       subject,
       phone,
       mustChangePassword: true,
       status: 'active'
+    });
+    await AuditLog.create({
+      actorId: req.user.id,
+      action: 'faculty_created',
+      targetId: newFaculty.id,
+      targetType: 'user',
+      metadata: { role: 'EDUCATOR', educatorType: 'COLLEGE', status: 'active' }
     });
 
     res.status(201).json({
@@ -69,7 +80,7 @@ exports.addFaculty = async (req, res, next) => {
 exports.getFacultyList = async (req, res, next) => {
   try {
     const facultyList = await User.findAll({
-      where: { role: 'faculty' },
+      where: { role: 'EDUCATOR', educatorType: 'COLLEGE' },
       attributes: { exclude: ['password'] },
       order: [['createdAt', 'DESC']]
     });
@@ -89,7 +100,7 @@ exports.updateFaculty = async (req, res, next) => {
     const { id } = req.params;
     const { name, email, department, subject, phone, status } = req.body;
 
-    const faculty = await User.findOne({ where: { id, role: 'faculty' } });
+    const faculty = await User.findOne({ where: { id, role: 'EDUCATOR', educatorType: 'COLLEGE' } });
     if (!faculty) {
       return next(new NotFoundError('Faculty member not found.'));
     }
@@ -109,6 +120,13 @@ exports.updateFaculty = async (req, res, next) => {
     if (status) faculty.status = status;
 
     await faculty.save();
+    await AuditLog.create({
+      actorId: req.user.id,
+      action: 'faculty_updated',
+      targetId: faculty.id,
+      targetType: 'user',
+      metadata: { changedFields: Object.keys(req.body || {}) }
+    });
 
     res.status(200).json({
       status: 'success',
@@ -129,13 +147,20 @@ exports.deactivateFaculty = async (req, res, next) => {
       return next(new BadRequestError('Status must be active or inactive.'));
     }
 
-    const faculty = await User.findOne({ where: { id, role: 'faculty' } });
+    const faculty = await User.findOne({ where: { id, role: 'EDUCATOR', educatorType: 'COLLEGE' } });
     if (!faculty) {
       return next(new NotFoundError('Faculty member not found.'));
     }
 
     faculty.status = status;
     await faculty.save();
+    await AuditLog.create({
+      actorId: req.user.id,
+      action: 'faculty_status_changed',
+      targetId: faculty.id,
+      targetType: 'user',
+      metadata: { status }
+    });
 
     res.status(200).json({
       status: 'success',
@@ -236,10 +261,13 @@ exports.reviewSubmission = async (req, res, next) => {
 
       // If Quiz: mark approved & published
       if (submission.quiz) {
-        submission.quiz.status = 'approved';
+        submission.quiz.status = 'PUBLISHED';
         submission.quiz.isPublished = true;
+        submission.quiz.publishedBy = req.user.id;
+        submission.quiz.publishedAt = new Date();
         submission.quiz.reviewNotes = feedback || 'Approved by Admin';
         await submission.quiz.save();
+        await Question.update({ status: 'published' }, { where: { quizId: submission.quiz.id } });
       }
 
       // If Material: mark approved
@@ -270,10 +298,12 @@ exports.reviewSubmission = async (req, res, next) => {
     } else {
       // Rejection or changes requested
       if (submission.quiz) {
-        submission.quiz.status = decision;
+        submission.quiz.status = 'REJECTED';
         submission.quiz.isPublished = false;
         submission.quiz.reviewNotes = feedback;
+        submission.quiz.rejectionReason = feedback || null;
         await submission.quiz.save();
+        await Question.update({ status: 'draft' }, { where: { quizId: submission.quiz.id } });
       }
       if (submission.material) {
         submission.material.status = decision;
@@ -283,6 +313,13 @@ exports.reviewSubmission = async (req, res, next) => {
     }
 
     await submission.save();
+    await AuditLog.create({
+      actorId: req.user.id,
+      action: `content_submission_${decision}`,
+      targetId: submission.quizId || submission.materialId || submission.id,
+      targetType: submission.contentType,
+      metadata: { submissionId: submission.id, feedback: feedback || null }
+    });
 
     res.status(200).json({
       status: 'success',
@@ -298,7 +335,7 @@ exports.reviewSubmission = async (req, res, next) => {
 exports.getContributors = async (req, res, next) => {
   try {
     const contributors = await User.findAll({
-      where: { role: 'contributor' },
+      where: { role: 'EDUCATOR' },
       attributes: { exclude: ['password'] },
       order: [['createdAt', 'DESC']]
     });
@@ -321,7 +358,7 @@ exports.updateContributorStatus = async (req, res, next) => {
       return next(new BadRequestError('Status must be approved, rejected, or pending.'));
     }
 
-    const contributor = await User.findOne({ where: { id, role: 'contributor' } });
+    const contributor = await User.findOne({ where: { id, role: 'EDUCATOR' } });
     if (!contributor) {
       return next(new NotFoundError('Contributor not found.'));
     }
@@ -334,6 +371,13 @@ exports.updateContributorStatus = async (req, res, next) => {
     }
 
     await contributor.save();
+    await AuditLog.create({
+      actorId: req.user.id,
+      action: 'educator_legacy_status_changed',
+      targetId: contributor.id,
+      targetType: 'user',
+      metadata: { contributorStatus: status, badge: contributor.badge }
+    });
 
     res.status(200).json({
       status: 'success',
@@ -349,7 +393,7 @@ exports.updateContributorStatus = async (req, res, next) => {
 exports.getContributorLeaderboard = async (req, res, next) => {
   try {
     const educators = await User.findAll({
-      where: { role: 'contributor', contributorStatus: 'approved' },
+      where: { role: 'EDUCATOR' },
       attributes: ['id', 'name', 'email', 'badge', 'subjectExpertise', 'totalEarned', 'earningsBalance'],
       include: [
         {
@@ -527,12 +571,12 @@ exports.processWithdrawal = async (req, res, next) => {
 // ─── Enhanced System KPIs ───────────────────────────────────────────────────
 exports.getSystemStats = async (req, res, next) => {
   try {
-    const totalFaculty = await User.count({ where: { role: 'faculty' } });
-    const totalContributors = await User.count({ where: { role: 'contributor' } });
-    const approvedEducators = await User.count({ where: { role: 'contributor', contributorStatus: 'approved' } });
+    const totalFaculty = await User.count({ where: { role: 'EDUCATOR', educatorType: 'COLLEGE' } });
+    const totalContributors = await User.count({ where: { role: 'EDUCATOR' } });
+    const approvedEducators = totalContributors;
     const pendingSubmissions = await ContentSubmission.count({ where: { status: 'pending' } });
-    const pendingApplications = await User.count({ where: { role: 'contributor', contributorStatus: 'pending' } });
-    const totalStudents = await User.count({ where: { role: 'student' } });
+    const pendingApplications = await EducatorApplication.count({ where: { status: 'PENDING' } });
+    const totalStudents = await User.count({ where: { role: 'STUDENT' } });
     const totalCourses = await Course.count();
     const totalQuizzes = await Quiz.count();
     const totalAttempts = await QuizAttempt.count();

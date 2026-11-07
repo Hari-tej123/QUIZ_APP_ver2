@@ -1,17 +1,22 @@
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 const { BadRequestError } = require('../utils/errors');
 
 // Ensure directories exist
 const uploadDir = path.join(__dirname, '../../uploads');
 const materialsDir = path.join(uploadDir, 'materials');
+const educatorProofDir = path.join(__dirname, '../../private_uploads/educator-proofs');
 
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
 if (!fs.existsSync(materialsDir)) {
   fs.mkdirSync(materialsDir, { recursive: true });
+}
+if (!fs.existsSync(educatorProofDir)) {
+  fs.mkdirSync(educatorProofDir, { recursive: true });
 }
 
 // Disk storage configuration for study materials (PDF/PPT/DOC/DOCX)
@@ -50,12 +55,43 @@ const memoryStorage = multer.memoryStorage();
 
 const excelFilter = (req, file, cb) => {
   const ext = path.extname(file.originalname).toLowerCase();
-  if (ext === '.xlsx' || ext === '.xls') {
+  if (['.xlsx', '.xls', '.csv'].includes(ext)) {
     cb(null, true);
   } else {
     cb(new BadRequestError('Only Excel files (.xlsx, .xls) are allowed.'));
   }
 };
+
+const questionUpload = multer({
+  storage: multer.memoryStorage(),
+  fileFilter: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    const supported = {
+      '.png': 'image/png',
+      '.jpg': 'image/jpeg',
+      '.jpeg': 'image/jpeg',
+      '.webp': 'image/webp'
+    };
+    if (supported[ext] === file.mimetype) return cb(null, true);
+    cb(new BadRequestError('Question images must be PNG, JPEG, or WebP files.'));
+  },
+  limits: { fileSize: 5 * 1024 * 1024 }
+});
+
+const educatorProofUpload = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => cb(null, educatorProofDir),
+    filename: (req, file, cb) => cb(null, `${crypto.randomUUID()}${path.extname(file.originalname).toLowerCase()}`)
+  }),
+  fileFilter: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    const allowed = ['.pdf', '.png', '.jpg', '.jpeg'];
+    const mimeTypes = ['application/pdf', 'image/png', 'image/jpeg'];
+    if (allowed.includes(ext) && mimeTypes.includes(file.mimetype)) return cb(null, true);
+    cb(new BadRequestError('Proof must be a PDF, PNG, or JPEG file.'));
+  },
+  limits: { fileSize: 5 * 1024 * 1024 }
+});
 
 const uploadExcel = multer({
   storage: memoryStorage,
@@ -67,5 +103,7 @@ const uploadExcel = multer({
 
 module.exports = {
   uploadMaterial,
-  uploadExcel
+  uploadExcel,
+  questionUpload,
+  educatorProofUpload
 };
