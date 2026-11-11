@@ -14,8 +14,9 @@ export default function Login() {
   const redirectTarget = searchParams.get('redirect');
   const googleStatus = searchParams.get('google');
   const inviteToken = searchParams.get('invite');
-  const demoAdminEmail = (import.meta.env.DEV ? import.meta.env.VITE_DEMO_ADMIN_EMAIL : '') || 'admin@quizapp.com';
-  const demoAdminPassword = (import.meta.env.DEV ? import.meta.env.VITE_DEMO_ADMIN_PASSWORD : '') || 'AdminSecurePass2026!';
+  const showDemo = import.meta.env.DEV || import.meta.env.VITE_SHOW_DEMO_CREDENTIALS === 'true';
+  const demoAdminEmail = (showDemo ? import.meta.env.VITE_DEMO_ADMIN_EMAIL : '') || 'admin@quizapp.com';
+  const demoAdminPassword = (showDemo ? import.meta.env.VITE_DEMO_ADMIN_PASSWORD : '') || 'AdminSecurePass2026!';
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -91,7 +92,7 @@ export default function Login() {
           </div>
         )}
 
-        {import.meta.env.DEV && <div className="mb-6 p-3.5 bg-neutral-50 border border-neutral-200/90 rounded-2xl">
+        {showDemo && <div className="mb-6 p-3.5 bg-neutral-50 border border-neutral-200/90 rounded-2xl">
           <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 block mb-2.5 text-center">
             ⚡ Quick-Fill Demo Credentials
           </span>

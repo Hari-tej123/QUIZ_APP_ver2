@@ -61,16 +61,24 @@ const startSession = (res, user) => {
   const csrfToken = randomBytes(32).toString('hex');
   res.cookie('session', token, { ...cookieOptions(), maxAge: SESSION_MAX_AGE });
   res.cookie('csrfToken', csrfToken, { ...cookieOptions(false), maxAge: SESSION_MAX_AGE });
+  res.setHeader('X-CSRF-Token', csrfToken);
+  return { token, csrfToken };
+};
+
+const getGoogleCallbackUrl = () => {
+  return process.env.GOOGLE_CALLBACK_URL ||
+    `${process.env.BACKEND_URL || 'https://quizz-backend-vey8.onrender.com'}/api/auth/google/callback`;
 };
 
 const googleClient = () => {
-  if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET || !process.env.GOOGLE_CALLBACK_URL) {
+  const callbackUrl = getGoogleCallbackUrl();
+  if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET || !callbackUrl) {
     throw new Error('Google authentication is not configured.');
   }
   return new OAuth2Client(
     process.env.GOOGLE_CLIENT_ID,
     process.env.GOOGLE_CLIENT_SECRET,
-    process.env.GOOGLE_CALLBACK_URL
+    callbackUrl
   );
 };
 
@@ -209,11 +217,12 @@ exports.register = async (req, res, next) => {
       await invite.save();
     }
 
-    startSession(res, newUser);
+    const { csrfToken } = startSession(res, newUser);
 
     res.status(201).json({
       status: 'success',
-      user: publicUser(newUser)
+      user: publicUser(newUser),
+      csrfToken
     });
   } catch (err) {
     next(err);
@@ -238,11 +247,12 @@ exports.login = async (req, res, next) => {
       return next(new UnauthorizedError('Your account has been deactivated. Please contact the administrator.'));
     }
 
-    startSession(res, user);
+    const { csrfToken } = startSession(res, user);
 
     res.status(200).json({
       status: 'success',
-      user: publicUser(user)
+      user: publicUser(user),
+      csrfToken
     });
   } catch (err) {
     next(err);
@@ -251,18 +261,24 @@ exports.login = async (req, res, next) => {
 
 exports.startGoogleAuth = async (req, res, next) => {
   try {
-    if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET || !process.env.GOOGLE_CALLBACK_URL) {
-      return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/login?google=not-configured`);
+    const frontendUrl = (process.env.FRONTEND_URL || process.env.CLIENT_URL || 'http://localhost:5173').replace(/\/$/, '');
+    const callbackUrl = getGoogleCallbackUrl();
+    if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET || !callbackUrl) {
+      return res.redirect(`${frontendUrl}/login?google=not-configured`);
     }
-    const state = randomBytes(32).toString('hex');
+    const statePayload = {
+      rand: randomBytes(16).toString('hex'),
+      invite: req.query.invite || null
+    };
+    const state = jwt.sign(statePayload, process.env.JWT_SECRET || 'google_fallback_secret', { expiresIn: '15m' });
     res.cookie('googleOAuthState', state, {
       ...cookieOptions(),
-      maxAge: 10 * 60 * 1000,
+      maxAge: 15 * 60 * 1000,
       path: '/api/auth/google/callback'
     });
     if (req.query.invite) {
       res.cookie('educatorInvite', String(req.query.invite), {
-        ...cookieOptions(), maxAge: 10 * 60 * 1000, path: '/api/auth/google/callback'
+        ...cookieOptions(), maxAge: 15 * 60 * 1000, path: '/api/auth/google/callback'
       });
     }
     const client = googleClient();
@@ -282,10 +298,25 @@ exports.googleCallback = async (req, res, next) => {
     const expectedState = req.cookies?.googleOAuthState || '';
     const receivedState = String(req.query.state || '');
     res.clearCookie('googleOAuthState', { ...cookieOptions(), path: '/api/auth/google/callback' });
-    const inviteToken = req.cookies?.educatorInvite;
+    let inviteToken = req.cookies?.educatorInvite;
     res.clearCookie('educatorInvite', { ...cookieOptions(), path: '/api/auth/google/callback' });
-    if (!expectedState || !receivedState || expectedState.length !== receivedState.length ||
-        !timingSafeEqual(Buffer.from(expectedState), Buffer.from(receivedState)) || !req.query.code) {
+
+    let stateVerified = false;
+    if (expectedState && receivedState && expectedState === receivedState) {
+      stateVerified = true;
+    } else if (receivedState) {
+      try {
+        const decoded = jwt.verify(receivedState, process.env.JWT_SECRET || 'google_fallback_secret');
+        if (decoded && decoded.rand) {
+          stateVerified = true;
+          if (!inviteToken && decoded.invite) {
+            inviteToken = decoded.invite;
+          }
+        }
+      } catch {}
+    }
+
+    if (!stateVerified || !req.query.code) {
       return next(new UnauthorizedError('Google sign-in could not be verified.'));
     }
 
@@ -333,12 +364,14 @@ exports.googleCallback = async (req, res, next) => {
     if (user.status !== 'active') return next(new UnauthorizedError('This account is unavailable.'));
     startSession(res, user);
 
+    const frontendUrl = (process.env.FRONTEND_URL || process.env.CLIENT_URL || 'http://localhost:5173').replace(/\/$/, '');
+
     if (user.needsRoleSelection) {
-      return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/register?google=complete-profile`);
+      return res.redirect(`${frontendUrl}/register?google=complete-profile`);
     }
 
     const targetPath = user.role === 'ADMIN' ? '/admin' : (user.role === 'EDUCATOR' ? '/contributor' : '/student');
-    res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}${targetPath}`);
+    res.redirect(`${frontendUrl}${targetPath}`);
   } catch (err) {
     next(err);
   }
@@ -416,11 +449,12 @@ exports.completeProfile = async (req, res, next) => {
       }
     }
 
-    startSession(res, user);
+    const { csrfToken } = startSession(res, user);
     res.status(200).json({
       status: 'success',
       message: 'Profile completed successfully.',
-      user: publicUser(user)
+      user: publicUser(user),
+      csrfToken
     });
   } catch (err) {
     next(err);
@@ -428,7 +462,12 @@ exports.completeProfile = async (req, res, next) => {
 };
 
 exports.getCurrentUser = async (req, res) => {
-  res.status(200).json({ status: 'success', user: publicUser(req.user) });
+  const csrfToken = req.cookies?.csrfToken || randomBytes(32).toString('hex');
+  if (!req.cookies?.csrfToken) {
+    res.cookie('csrfToken', csrfToken, { ...cookieOptions(false), maxAge: SESSION_MAX_AGE });
+  }
+  res.setHeader('X-CSRF-Token', csrfToken);
+  res.status(200).json({ status: 'success', user: publicUser(req.user), csrfToken });
 };
 
 exports.logout = (req, res) => {

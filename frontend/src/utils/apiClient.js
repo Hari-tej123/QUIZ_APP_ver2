@@ -6,7 +6,12 @@ class ApiClient {
       ...options.headers,
     };
 
-    const csrfToken = document.cookie.split('; ').find(cookie => cookie.startsWith('csrfToken='))?.split('=').slice(1).join('=');
+    let csrfToken = document.cookie.split('; ').find(cookie => cookie.startsWith('csrfToken='))?.split('=').slice(1).join('=');
+    if (!csrfToken) {
+      try {
+        csrfToken = localStorage.getItem('quizzify_csrf_token');
+      } catch {}
+    }
     if (csrfToken && !['GET', 'HEAD', 'OPTIONS'].includes(options.method || 'GET')) {
       headers['X-CSRF-Token'] = decodeURIComponent(csrfToken);
     }
@@ -24,12 +29,31 @@ class ApiClient {
 
     const response = await fetch(`${BASE_URL}${endpoint}`, config);
 
+    // Save CSRF token if returned in header
+    const returnedCsrf = response.headers.get('x-csrf-token') || response.headers.get('X-CSRF-Token');
+    if (returnedCsrf) {
+      try {
+        localStorage.setItem('quizzify_csrf_token', returnedCsrf);
+      } catch {}
+    }
+
     // Handle token expiry / unauthorized globally
-    if (response.status === 401 && !endpoint.includes('/auth/login')) {
+    if (response.status === 401 && !endpoint.includes('/auth/login') && !endpoint.includes('/auth/me')) {
+      try {
+        localStorage.removeItem('quizzify_has_session');
+        localStorage.removeItem('quizzify_csrf_token');
+      } catch {}
       window.dispatchEvent(new Event('auth-logout'));
     }
 
     const data = await response.json().catch(() => ({}));
+
+    // Save CSRF token if present in response data
+    if (data && data.csrfToken) {
+      try {
+        localStorage.setItem('quizzify_csrf_token', data.csrfToken);
+      } catch {}
+    }
 
     if (!response.ok) {
       const error = new Error(data.message || 'Something went wrong');

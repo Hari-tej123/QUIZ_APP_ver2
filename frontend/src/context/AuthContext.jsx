@@ -16,6 +16,10 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   const logout = useCallback(async () => {
+    try {
+      localStorage.removeItem('quizzify_has_session');
+      localStorage.removeItem('quizzify_csrf_token');
+    } catch {}
     await apiClient.post('/auth/logout').catch(() => {});
     setUser(null);
   }, []);
@@ -23,21 +27,35 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     let active = true;
     const handleGlobalLogout = () => {
+      try {
+        localStorage.removeItem('quizzify_has_session');
+        localStorage.removeItem('quizzify_csrf_token');
+      } catch {}
       if (active) setUser(null);
     };
     window.addEventListener('auth-logout', handleGlobalLogout);
-    const hasSessionMarker = document.cookie.split('; ').some(cookie => cookie.startsWith('csrfToken='));
-    if (!hasSessionMarker) {
-      setLoading(false);
-      return () => {
-        active = false;
-        window.removeEventListener('auth-logout', handleGlobalLogout);
-      };
-    }
+
+    // Verify session on mount (handles page refresh, cross-domain cookies, and OAuth redirects)
     apiClient.get('/auth/me')
-      .then(response => { if (active) setUser(response.user); })
-      .catch(() => { if (active) setUser(null); })
+      .then(response => {
+        if (active) {
+          setUser(response.user);
+          try {
+            localStorage.setItem('quizzify_has_session', 'true');
+          } catch {}
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setUser(null);
+          try {
+            localStorage.removeItem('quizzify_has_session');
+            localStorage.removeItem('quizzify_csrf_token');
+          } catch {}
+        }
+      })
       .finally(() => { if (active) setLoading(false); });
+
     return () => {
       active = false;
       window.removeEventListener('auth-logout', handleGlobalLogout);
@@ -49,6 +67,9 @@ export const AuthProvider = ({ children }) => {
     try {
       const response = await apiClient.post('/auth/login', { email, password });
       const { user: receivedUser } = response;
+      try {
+        localStorage.setItem('quizzify_has_session', 'true');
+      } catch {}
       setUser(receivedUser);
       setLoading(false);
       return receivedUser;
@@ -63,6 +84,9 @@ export const AuthProvider = ({ children }) => {
     try {
       const response = await apiClient.post('/auth/register', details);
       const { user: receivedUser } = response;
+      try {
+        localStorage.setItem('quizzify_has_session', 'true');
+      } catch {}
       setUser(receivedUser);
       setLoading(false);
       return receivedUser;

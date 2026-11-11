@@ -19,20 +19,44 @@ app.use(helmet({
 }));
 
 // Implement CORS
-const allowedOrigins = (process.env.CORS_ORIGINS || process.env.FRONTEND_URL || 'http://localhost:5173')
-  .split(',').map(origin => origin.trim()).filter(Boolean);
+const defaultOrigins = [
+  'https://quiz-app-ver2-beta.vercel.app',
+  'http://localhost:5173',
+  'http://localhost:3000',
+  'http://localhost:5000'
+];
+
+const envOrigins = [
+  ...(process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',') : []),
+  ...(process.env.FRONTEND_URL ? [process.env.FRONTEND_URL] : []),
+  ...(process.env.CLIENT_URL ? [process.env.CLIENT_URL] : [])
+];
+
+const allowedOrigins = [...defaultOrigins, ...envOrigins]
+  .map(origin => origin.trim().replace(/\/$/, ''))
+  .filter(Boolean);
+
+const isOriginAllowed = (origin) => {
+  if (!origin) return true;
+  const normalized = origin.trim().replace(/\/$/, '');
+  if (allowedOrigins.includes(normalized)) return true;
+  // Automatically allow any vercel preview deployment for this project
+  if (/^https:\/\/quiz-app-ver2.*\.vercel\.app$/.test(normalized)) return true;
+  return false;
+};
 
 const corsOptions = {
   origin: (origin, callback) => {
-    // Allow requests with no origin (mobile apps, curl, Render health checks)
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin)) return callback(null, true);
+    if (isOriginAllowed(origin)) {
+      return callback(null, true);
+    }
     console.warn(`[CORS] Blocked origin: ${origin}. Allowed: ${allowedOrigins.join(', ')}`);
-    callback(new Error(`CORS: origin '${origin}' not allowed`));
+    return callback(null, false);
   },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token', 'X-Requested-With', 'Accept'],
+  exposedHeaders: ['Set-Cookie', 'X-CSRF-Token'],
   optionsSuccessStatus: 200 // some legacy browsers (IE11) choke on 204
 };
 
@@ -45,15 +69,31 @@ app.use(cookieParser());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// CSRF / Origin verification middleware
 app.use((req, res, next) => {
   const isMutation = !['GET', 'HEAD', 'OPTIONS'].includes(req.method);
-  if (!isMutation || !req.cookies?.session || req.headers.authorization) return next();
+  if (!isMutation) return next();
+
+  // Authentication endpoints create/destroy sessions and are origin-verified by CORS
+  if (req.originalUrl.includes('/api/auth/')) return next();
+
+  // Requests with Bearer tokens or no session cookie do not use cookie-based auth
+  if (!req.cookies?.session || req.headers.authorization) return next();
+
+  // If request comes from an allowed origin (verified via CORS & Origin header)
+  const origin = req.get('Origin');
+  if (origin && isOriginAllowed(origin)) {
+    return next();
+  }
+
+  // Double-submit CSRF cookie check
   const cookieToken = req.cookies.csrfToken;
   const headerToken = req.get('X-CSRF-Token');
-  if (!cookieToken || !headerToken || cookieToken !== headerToken) {
-    return res.status(403).json({ status: 'fail', message: 'Request could not be verified.' });
+  if (cookieToken && headerToken && cookieToken === headerToken) {
+    return next();
   }
-  next();
+
+  return res.status(403).json({ status: 'fail', message: 'Request could not be verified.' });
 });
 
 // Static files for study materials downloads
