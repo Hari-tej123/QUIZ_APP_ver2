@@ -4,7 +4,18 @@ const env = process.env.NODE_ENV || 'development';
 const dbConfig = config[env];
 
 let sequelize;
-if (dbConfig.use_env_variable) {
+if (process.env.DATABASE_URL) {
+  sequelize = new Sequelize(process.env.DATABASE_URL, {
+    dialect: 'postgres',
+    logging: false,
+    dialectOptions: {
+      ssl: {
+        require: true,
+        rejectUnauthorized: false
+      }
+    }
+  });
+} else if (dbConfig.use_env_variable && process.env[dbConfig.use_env_variable]) {
   sequelize = new Sequelize(process.env[dbConfig.use_env_variable], dbConfig);
 } else {
   sequelize = new Sequelize(dbConfig.database, dbConfig.username, dbConfig.password, dbConfig);

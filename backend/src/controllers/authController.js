@@ -8,13 +8,16 @@ const educatorController = require('./educatorController');
 const { BadRequestError, UnauthorizedError, ConflictError, NotFoundError } = require('../utils/errors');
 
 const SESSION_MAX_AGE = 2 * 60 * 60 * 1000;
-const cookieOptions = (httpOnly = true) => ({
-  httpOnly,
-  secure: process.env.COOKIE_SECURE === 'true' || process.env.NODE_ENV === 'production',
-  sameSite: 'lax',
-  path: '/',
-  ...(process.env.COOKIE_DOMAIN ? { domain: process.env.COOKIE_DOMAIN } : {})
-});
+const cookieOptions = (httpOnly = true) => {
+  const isProduction = process.env.NODE_ENV === 'production';
+  return {
+    httpOnly,
+    secure: process.env.COOKIE_SECURE ? process.env.COOKIE_SECURE === 'true' : isProduction,
+    sameSite: process.env.COOKIE_SAMESITE || (isProduction ? 'none' : 'lax'),
+    path: '/',
+    ...(process.env.COOKIE_DOMAIN ? { domain: process.env.COOKIE_DOMAIN } : {})
+  };
+};
 
 const publicUser = (user) => ({
   id: user.id,

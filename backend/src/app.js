@@ -10,6 +10,9 @@ const { NotFoundError } = require('./utils/errors');
 
 const app = express();
 
+// Trust reverse proxy (Render, Vercel, Railway, etc.) for secure cookies & rate-limiting
+app.set('trust proxy', 1);
+
 // Set security HTTP headers
 app.use(helmet({
   crossOriginResourcePolicy: false // Allows files (materials) to be downloaded across origins
