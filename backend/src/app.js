@@ -38,7 +38,7 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 // Explicitly handle preflight for all routes BEFORE rate-limiting
-app.options('*', cors(corsOptions));
+app.options('/{*splat}', cors(corsOptions));
 
 // Body parsers
 app.use(cookieParser());
