@@ -315,7 +315,9 @@ export default function Register() {
                       <button
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3.5 top-9 text-neutral-400 hover:text-neutral-600 transition-colors p-1 cursor-pointer"
+                        className="absolute right-3.5 top-9 text-neutral-400 hover:text-neutral-600 transition-colors p-1 cursor-pointer min-w-[32px] min-h-[32px] flex items-center justify-center rounded-lg"
+                        title={showPassword ? 'Hide password' : 'Show password'}
+                        aria-label={showPassword ? 'Hide password' : 'Show password'}
                       >
                         {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>

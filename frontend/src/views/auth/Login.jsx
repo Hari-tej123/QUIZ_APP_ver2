@@ -91,36 +91,36 @@ export default function Login() {
           </div>
         )}
 
-        {import.meta.env.DEV && <div className="mb-6 p-3 bg-neutral-50 border border-neutral-200/80 rounded-2xl">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 block mb-2 text-center">
+        {import.meta.env.DEV && <div className="mb-6 p-3.5 bg-neutral-50 border border-neutral-200/90 rounded-2xl">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 block mb-2.5 text-center">
             ⚡ Quick-Fill Demo Credentials
           </span>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             <button
               type="button"
               onClick={() => fillCredentials('student1@quizapp.com')}
-              className="px-2 py-1.5 text-[10px] font-bold rounded-lg bg-white border border-neutral-200/90 text-neutral-700 hover:border-primary-400 hover:text-primary-600 transition-all cursor-pointer shadow-xs"
+              className="px-2.5 py-2 text-xs font-bold rounded-xl bg-white border border-neutral-200 text-neutral-800 hover:border-primary-400 hover:text-primary-700 transition-all cursor-pointer shadow-xs min-h-[36px] flex items-center justify-center gap-1"
             >
               🎓 Student
             </button>
             <button
               type="button"
               onClick={() => fillCredentials('contributor1@quizapp.com')}
-              className="px-2 py-1.5 text-[10px] font-bold rounded-lg bg-primary-50 border border-primary-200 text-primary-800 hover:border-primary-400 transition-all cursor-pointer shadow-xs"
+              className="px-2.5 py-2 text-xs font-bold rounded-xl bg-primary-50 border border-primary-200 text-primary-900 hover:border-primary-400 transition-all cursor-pointer shadow-xs min-h-[36px] flex items-center justify-center gap-1"
             >
               ✨ Educator
             </button>
             <button
               type="button"
               onClick={() => fillCredentials('faculty1@quizapp.com')}
-              className="px-2 py-1.5 text-[10px] font-bold rounded-lg bg-amber-50 border border-amber-200 text-amber-800 hover:border-amber-400 transition-all cursor-pointer shadow-xs"
+              className="px-2.5 py-2 text-xs font-bold rounded-xl bg-amber-50 border border-amber-200 text-amber-950 hover:border-amber-400 transition-all cursor-pointer shadow-xs min-h-[36px] flex items-center justify-center gap-1"
             >
               🏛️ Faculty
             </button>
             {demoAdminEmail && demoAdminPassword && <button
               type="button"
               onClick={() => fillCredentials(demoAdminEmail, demoAdminPassword)}
-              className="px-2 py-1.5 text-[10px] font-bold rounded-lg bg-neutral-900 border border-neutral-900 text-white hover:bg-neutral-700 transition-all cursor-pointer shadow-xs"
+              className="px-2.5 py-2 text-xs font-bold rounded-xl bg-neutral-900 border border-neutral-900 text-white hover:bg-neutral-800 transition-all cursor-pointer shadow-xs min-h-[36px] flex items-center justify-center gap-1"
             >
               Admin
             </button>}
@@ -149,8 +149,9 @@ export default function Login() {
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3.5 top-9 text-neutral-400 hover:text-neutral-600 transition-colors p-1 cursor-pointer"
+              className="absolute right-3.5 top-9 text-neutral-400 hover:text-neutral-600 transition-colors p-1 cursor-pointer min-w-[32px] min-h-[32px] flex items-center justify-center rounded-lg"
               title={showPassword ? 'Hide password' : 'Show password'}
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
             >
               {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </button>

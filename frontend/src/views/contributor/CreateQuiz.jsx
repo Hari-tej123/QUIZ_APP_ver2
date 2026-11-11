@@ -372,14 +372,14 @@ export default function CreateQuiz() {
 
           {/* Track Switcher */}
           {!isCompetitiveOnly ? (
-            <div className="flex items-center bg-neutral-100 p-1 rounded-xl border border-neutral-200">
+            <div className="flex items-center bg-neutral-100/90 p-1 rounded-xl border border-neutral-200/80">
               <button
                 type="button"
                 onClick={() => setTrackType('competitive')}
-                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer min-h-[36px] ${
                   trackType === 'competitive'
-                    ? 'bg-white text-primary-700 shadow-xs'
-                    : 'text-neutral-500 hover:text-neutral-800'
+                    ? 'bg-white text-primary-800 shadow-xs border border-primary-200'
+                    : 'text-neutral-600 hover:text-neutral-900'
                 }`}
               >
                 🎯 Competitive Exams
@@ -387,17 +387,17 @@ export default function CreateQuiz() {
               <button
                 type="button"
                 onClick={() => setTrackType('college')}
-                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer min-h-[36px] ${
                   trackType === 'college'
-                    ? 'bg-white text-amber-800 shadow-xs'
-                    : 'text-neutral-500 hover:text-neutral-800'
+                    ? 'bg-white text-amber-900 shadow-xs border border-amber-200'
+                    : 'text-neutral-600 hover:text-neutral-900'
                 }`}
               >
                 🏛️ College Courses
               </button>
             </div>
           ) : (
-            <Badge variant="primary" className="px-3 py-1 text-xs font-bold">
+            <Badge variant="primary" className="px-3 py-1.5 text-xs font-bold">
               🎯 Competitive Track Only
             </Badge>
           )}
@@ -406,7 +406,7 @@ export default function CreateQuiz() {
         {trackType === 'competitive' ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
-              <label className="block text-xs font-bold text-neutral-700 mb-1.5">Exam</label>
+              <label className="block text-xs font-bold text-neutral-700 uppercase tracking-wider mb-1.5">Exam</label>
               <select
                 value={selectedExamId}
                 onChange={(e) => {
@@ -422,7 +422,7 @@ export default function CreateQuiz() {
                     }
                   }
                 }}
-                className="w-full text-xs font-semibold px-3 py-2.5 rounded-xl border border-neutral-300 bg-white focus:ring-2 focus:ring-primary-500"
+                className="w-full text-xs font-semibold px-3.5 py-2.5 rounded-xl border border-neutral-200/90 bg-white text-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/20 focus-visible:border-primary-500 shadow-xs min-h-[42px]"
               >
                 {hierarchy.competitiveExams.map(e => (
                   <option key={e.id} value={e.id}>{e.name} ({e.code})</option>
@@ -431,7 +431,7 @@ export default function CreateQuiz() {
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-neutral-700 mb-1.5">Edition / Year</label>
+              <label className="block text-xs font-bold text-neutral-700 uppercase tracking-wider mb-1.5">Edition / Year</label>
               <select
                 value={selectedEditionId}
                 onChange={(e) => {
@@ -444,7 +444,7 @@ export default function CreateQuiz() {
                     }
                   }
                 }}
-                className="w-full text-xs font-semibold px-3 py-2.5 rounded-xl border border-neutral-300 bg-white focus:ring-2 focus:ring-primary-500"
+                className="w-full text-xs font-semibold px-3.5 py-2.5 rounded-xl border border-neutral-200/90 bg-white text-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/20 focus-visible:border-primary-500 shadow-xs min-h-[42px]"
               >
                 {currentEditions.map(ed => (
                   <option key={ed.id} value={ed.id}>{ed.title || ed.year}</option>
@@ -453,7 +453,7 @@ export default function CreateQuiz() {
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-neutral-700 mb-1.5">Subject</label>
+              <label className="block text-xs font-bold text-neutral-700 uppercase tracking-wider mb-1.5">Subject</label>
               <select
                 value={selectedSubjectId}
                 onChange={(e) => {
@@ -463,7 +463,7 @@ export default function CreateQuiz() {
                     setSelectedTopicId(sub.topics[0].id);
                   }
                 }}
-                className="w-full text-xs font-semibold px-3 py-2.5 rounded-xl border border-neutral-300 bg-white focus:ring-2 focus:ring-primary-500"
+                className="w-full text-xs font-semibold px-3.5 py-2.5 rounded-xl border border-neutral-200/90 bg-white text-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/20 focus-visible:border-primary-500 shadow-xs min-h-[42px]"
               >
                 {currentSubjects.map(sub => (
                   <option key={sub.id} value={sub.id}>{sub.name}</option>
@@ -473,7 +473,7 @@ export default function CreateQuiz() {
 
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="block text-xs font-bold text-neutral-700">Topic</label>
+                <label className="block text-xs font-bold text-neutral-700 uppercase tracking-wider">Topic</label>
                 <button
                   type="button"
                   onClick={() => setShowNewTopicModal(true)}
@@ -485,7 +485,7 @@ export default function CreateQuiz() {
               <select
                 value={selectedTopicId}
                 onChange={(e) => setSelectedTopicId(e.target.value)}
-                className="w-full text-xs font-semibold px-3 py-2.5 rounded-xl border border-neutral-300 bg-white focus:ring-2 focus:ring-primary-500"
+                className="w-full text-xs font-semibold px-3.5 py-2.5 rounded-xl border border-neutral-200/90 bg-white text-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/20 focus-visible:border-primary-500 shadow-xs min-h-[42px]"
               >
                 {currentTopics.map(t => (
                   <option key={t.id} value={t.id}>{t.name}</option>
@@ -496,7 +496,7 @@ export default function CreateQuiz() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-bold text-neutral-700 mb-1.5">Course</label>
+              <label className="block text-xs font-bold text-neutral-700 uppercase tracking-wider mb-1.5">Course</label>
               <select
                 value={selectedCourseId}
                 onChange={(e) => {
@@ -506,7 +506,7 @@ export default function CreateQuiz() {
                     setSelectedSubtopicId(c.subtopics[0].id);
                   }
                 }}
-                className="w-full text-xs font-semibold px-3 py-2.5 rounded-xl border border-neutral-300 bg-white focus:ring-2 focus:ring-primary-500"
+                className="w-full text-xs font-semibold px-3.5 py-2.5 rounded-xl border border-neutral-200/90 bg-white text-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/20 focus-visible:border-amber-500 shadow-xs min-h-[42px]"
               >
                 {hierarchy.collegeCourses.map(c => (
                   <option key={c.id} value={c.id}>{c.title} ({c.subject})</option>
@@ -515,11 +515,11 @@ export default function CreateQuiz() {
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-neutral-700 mb-1.5">Unit / Subtopic</label>
+              <label className="block text-xs font-bold text-neutral-700 uppercase tracking-wider mb-1.5">Unit / Subtopic</label>
               <select
                 value={selectedSubtopicId}
                 onChange={(e) => setSelectedSubtopicId(e.target.value)}
-                className="w-full text-xs font-semibold px-3 py-2.5 rounded-xl border border-neutral-300 bg-white focus:ring-2 focus:ring-primary-500"
+                className="w-full text-xs font-semibold px-3.5 py-2.5 rounded-xl border border-neutral-200/90 bg-white text-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/20 focus-visible:border-amber-500 shadow-xs min-h-[42px]"
               >
                 {currentSubtopics.map(st => (
                   <option key={st.id} value={st.id}>{st.title}</option>

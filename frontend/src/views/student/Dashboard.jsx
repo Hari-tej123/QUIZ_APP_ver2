@@ -86,22 +86,23 @@ export default function StudentDashboard() {
               <Sparkles className="w-3.5 h-3.5 text-primary-400" />
               Comprehensive Learning Journey
             </span>
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight font-display">
-              Ready to practice today? 🚀
+            <h1 className="text-white text-2xl sm:text-[30px] font-extrabold tracking-tight font-display flex flex-wrap items-center gap-2">
+              <span>Ready to practice today?</span>
+              <span className="inline-block transform hover:scale-110 transition-transform duration-200 select-none text-2xl sm:text-3xl" role="img" aria-label="rocket">🚀</span>
             </h1>
-            <p className="text-neutral-300 text-xs sm:text-sm max-w-2xl leading-relaxed">
+            <p className="text-slate-200 text-xs sm:text-sm max-w-2xl leading-relaxed font-normal">
               Drill down into competitive exams or university courses, practice timed mock tests, and resolve tricky concepts in your revision folder.
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-3 shrink-0">
             <Link to="/student/exams">
-              <Button variant="primary" size="md" className="bg-primary-600 hover:bg-primary-500 font-bold border-none shadow-lg shadow-primary-900/40">
+              <Button variant="primary" size="md" className="bg-primary-600 hover:bg-primary-500 font-bold border-none shadow-lg shadow-primary-900/40 min-h-[42px] px-5">
                 🎯 Competitive Track
               </Button>
             </Link>
             <Link to="/student/courses">
-              <Button variant="secondary" size="md" className="bg-white/10 hover:bg-white/20 text-white font-bold border-white/20 backdrop-blur-sm">
+              <Button variant="secondary" size="md" className="bg-white/10 hover:bg-white/20 text-white font-bold border-white/20 backdrop-blur-sm min-h-[42px] px-5">
                 🏛️ College Courses
               </Button>
             </Link>
@@ -113,37 +114,41 @@ export default function StudentDashboard() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         {/* Mistakes Folder */}
         <Link to="/student/revision?tab=mistakes" className="group">
-          <div className="p-6 rounded-2xl bg-gradient-to-br from-rose-50 to-red-50/50 border border-rose-100 hover:border-rose-300 hover:shadow-card-hover transition-all space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-rose-700">My Mistakes</span>
-              <div className="w-9 h-9 rounded-xl bg-rose-500 text-white flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform">
-                <AlertOctagon className="w-5 h-5" />
+          <div className="p-6 rounded-2xl bg-gradient-to-br from-rose-50 to-red-50/50 border border-rose-200/90 hover:border-rose-400 hover:shadow-card-hover transition-all space-y-3 h-full flex flex-col justify-between">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider text-rose-800">My Mistakes</span>
+                <div className="w-9 h-9 rounded-xl bg-rose-600 text-white flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform">
+                  <AlertOctagon className="w-5 h-5" />
+                </div>
+              </div>
+              <div>
+                <h3 className="text-3xl font-extrabold text-neutral-900 font-display tracking-tight">{mistakesCount}</h3>
               </div>
             </div>
-            <div>
-              <h3 className="text-3xl font-extrabold text-neutral-900 font-display">{mistakesCount}</h3>
-              <p className="text-xs text-rose-800 font-semibold mt-1 flex items-center gap-1">
-                Revise incorrect questions <ArrowRight className="w-3.5 h-3.5" />
-              </p>
-            </div>
+            <p className="text-xs text-rose-900 font-bold flex items-center gap-1 pt-2">
+              Revise incorrect questions <ArrowRight className="w-3.5 h-3.5" />
+            </p>
           </div>
         </Link>
 
         {/* Bookmarks Folder */}
         <Link to="/student/revision?tab=bookmarks" className="group">
-          <div className="p-6 rounded-2xl bg-gradient-to-br from-amber-50 to-yellow-50/50 border border-amber-100 hover:border-amber-300 hover:shadow-card-hover transition-all space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-amber-700">Bookmarked</span>
-              <div className="w-9 h-9 rounded-xl bg-amber-500 text-white flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform">
-                <Star className="w-5 h-5 fill-white" />
+          <div className="p-6 rounded-2xl bg-gradient-to-br from-amber-50 to-yellow-50/50 border border-amber-200/90 hover:border-amber-400 hover:shadow-card-hover transition-all space-y-3 h-full flex flex-col justify-between">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider text-amber-900">Bookmarked</span>
+                <div className="w-9 h-9 rounded-xl bg-amber-500 text-white flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform">
+                  <Star className="w-5 h-5 fill-white" />
+                </div>
+              </div>
+              <div>
+                <h3 className="text-3xl font-extrabold text-neutral-900 font-display tracking-tight">{bookmarksCount}</h3>
               </div>
             </div>
-            <div>
-              <h3 className="text-3xl font-extrabold text-neutral-900 font-display">{bookmarksCount}</h3>
-              <p className="text-xs text-amber-800 font-semibold mt-1 flex items-center gap-1">
-                Starred question bank <ArrowRight className="w-3.5 h-3.5" />
-              </p>
-            </div>
+            <p className="text-xs text-amber-950 font-bold flex items-center gap-1 pt-2">
+              Starred question bank <ArrowRight className="w-3.5 h-3.5" />
+            </p>
           </div>
         </Link>
 

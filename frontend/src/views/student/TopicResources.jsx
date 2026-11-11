@@ -111,11 +111,11 @@ export default function TopicResources() {
           )}
         </div>
 
-        <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight font-display">
+        <h1 className="text-white text-2xl sm:text-3xl font-extrabold tracking-tight font-display">
           {topicTitle}
         </h1>
 
-        <p className="text-neutral-300 text-xs sm:text-sm max-w-2xl leading-relaxed">
+        <p className="text-slate-200 text-xs sm:text-sm max-w-2xl leading-relaxed">
           Master this topic with expert-authored study handouts, lecture formulas, video walkthroughs, and practice quizzes.
         </p>
 
@@ -126,7 +126,7 @@ export default function TopicResources() {
             className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
               activeTab === 'resources'
                 ? 'bg-primary-600 text-white shadow-xs'
-                : 'bg-white/10 text-neutral-300 hover:bg-white/20'
+                : 'bg-white/10 text-slate-200 hover:bg-white/20 hover:text-white'
             }`}
           >
             <FileText className="w-4 h-4" /> Study Materials ({materials.length})

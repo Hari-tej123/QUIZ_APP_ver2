@@ -181,12 +181,12 @@ export default function BrowseExams() {
             <Badge variant="trackCompetitive">
               🎯 Competitive Exam Prep
             </Badge>
-            <span className="text-xs text-neutral-400 font-semibold">• Goal-Based Syllabus</span>
+            <span className="text-xs text-neutral-500 font-semibold">• Goal-Based Syllabus</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-neutral-900 tracking-tight font-display">
             {isStateA ? 'Choose Your Target Exams' : 'My Registered Competitive Exams'}
           </h1>
-          <p className="text-xs sm:text-sm text-neutral-500 mt-2 leading-relaxed font-medium">
+          <p className="text-xs sm:text-sm text-neutral-600 mt-2 leading-relaxed font-medium">
             {isStateA
               ? 'Select the national competitive exams you are preparing for (GATE, JEE Main, NEET, UPSC Civil Services, CAT) to unlock topic-wise questions, study notes, and mock tests.'
               : 'Explore syllabus topics, test your knowledge with topic-level quiz drills, and prepare for your target competitive exams.'}
@@ -195,14 +195,14 @@ export default function BrowseExams() {
 
         {/* Real Live Counters */}
         <div className="flex items-center gap-3 shrink-0">
-          <div className="bg-primary-50 border border-primary-100 p-3.5 rounded-2xl text-center min-w-[100px]">
-            <span className="text-2xl font-black text-primary-700 font-display block">
+          <div className="bg-primary-50 border border-primary-200/80 p-3.5 rounded-2xl text-center min-w-[100px]">
+            <span className="text-2xl font-black text-primary-800 font-display block">
               {registeredExams.length}
             </span>
-            <span className="text-[10px] font-bold uppercase tracking-wider text-primary-600">Target Goals</span>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-primary-900">Target Goals</span>
           </div>
           <div className="bg-neutral-50 border border-neutral-200 p-3.5 rounded-2xl text-center min-w-[100px]">
-            <span className="text-2xl font-black text-neutral-800 font-display block">
+            <span className="text-2xl font-black text-neutral-900 font-display block">
               {allExams.length}
             </span>
             <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Available</span>
@@ -215,17 +215,17 @@ export default function BrowseExams() {
         <div className="space-y-6">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="relative w-full sm:w-80">
-              <Search className="absolute left-3.5 top-3 h-4 w-4 text-neutral-400" />
+              <Search className="absolute left-3.5 top-3.5 h-4 w-4 text-neutral-400" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search competitive exams..."
-                className="w-full pl-10 pr-4 py-2.2 text-sm border border-neutral-200/90 bg-white rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 shadow-xs"
+                className="w-full pl-10 pr-4 py-2.5 min-h-[42px] text-sm border border-neutral-200/90 bg-white text-neutral-800 placeholder:text-neutral-400 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/20 focus-visible:border-primary-500 shadow-xs"
               />
             </div>
 
-            <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0">
+            <div className="flex items-center gap-2 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0">
               {[
                 { id: 'all', label: 'All Exams' },
                 { id: 'engineering', label: 'Engineering' },

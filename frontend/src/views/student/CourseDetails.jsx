@@ -177,28 +177,28 @@ export default function CourseDetails() {
         <div className="max-w-3xl">
           <div className="flex items-center gap-2 mb-2">
             <Badge variant="trackCollege">{course.subject || 'University Curriculum'}</Badge>
-            <span className="text-xs text-neutral-400 font-semibold">• College Academic Track</span>
+            <span className="text-xs text-neutral-500 font-semibold">• College Academic Track</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-neutral-900 tracking-tight font-display">
             {course.title}
           </h1>
-          <p className="text-[11px] font-semibold text-neutral-400 mt-1.5 uppercase tracking-wider flex items-center gap-1">
-            <User className="w-3.5 h-3.5 text-neutral-400" /> Lecturer: {course.faculty?.name || 'Faculty Professor'}
+          <p className="text-[11px] font-semibold text-neutral-500 mt-1.5 uppercase tracking-wider flex items-center gap-1.5">
+            <User className="w-3.5 h-3.5 text-neutral-500" /> Lecturer: <span className="text-neutral-700 font-bold">{course.faculty?.name || 'Faculty Professor'}</span>
           </p>
-          <p className="text-xs sm:text-sm text-neutral-500 leading-relaxed mt-3 font-medium">
+          <p className="text-xs sm:text-sm text-neutral-600 leading-relaxed mt-3 font-medium">
             {course.description}
           </p>
         </div>
 
         <div className="flex items-center gap-3 shrink-0">
-          <div className="bg-amber-50 border border-amber-100 p-3.5 rounded-2xl text-center">
-            <span className="text-2xl font-black text-amber-700 font-display block">
+          <div className="bg-amber-50 border border-amber-200/80 p-3.5 rounded-2xl text-center min-w-[95px]">
+            <span className="text-2xl font-black text-amber-800 font-display block">
               {course.subtopics?.length || 0}
             </span>
-            <span className="text-[10px] font-bold uppercase tracking-wider text-amber-600">Units / Modules</span>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-amber-900">Units / Modules</span>
           </div>
-          <div className="bg-neutral-50 border border-neutral-200 p-3.5 rounded-2xl text-center">
-            <span className="text-2xl font-black text-neutral-800 font-display block">
+          <div className="bg-neutral-50 border border-neutral-200 p-3.5 rounded-2xl text-center min-w-[95px]">
+            <span className="text-2xl font-black text-neutral-900 font-display block">
               {course.quizzes?.length || 0}
             </span>
             <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Quizzes</span>
@@ -207,33 +207,33 @@ export default function CourseDetails() {
       </div>
 
       {/* ─── TABS NAVIGATION ──────────────────────────────────────────────── */}
-      <div className="flex items-center gap-2 border-b border-neutral-200/80">
+      <div className="flex items-center gap-2 border-b border-neutral-200/80 overflow-x-auto">
         <button
           onClick={() => setActiveTab('curriculum')}
-          className={`px-5 py-3 text-xs font-bold border-b-2 transition-all cursor-pointer flex items-center gap-2 ${
+          className={`px-5 py-3 text-xs font-bold border-b-2 transition-all cursor-pointer flex items-center gap-2 min-h-[42px] whitespace-nowrap ${
             activeTab === 'curriculum'
-              ? 'border-amber-500 text-amber-700'
-              : 'border-transparent text-neutral-500 hover:text-neutral-900'
+              ? 'border-amber-500 text-amber-900'
+              : 'border-transparent text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100/50'
           }`}
         >
           <Layers className="w-4 h-4" /> Syllabus & Modules ({course.subtopics?.length || 0})
         </button>
         <button
           onClick={() => setActiveTab('materials')}
-          className={`px-5 py-3 text-xs font-bold border-b-2 transition-all cursor-pointer flex items-center gap-2 ${
+          className={`px-5 py-3 text-xs font-bold border-b-2 transition-all cursor-pointer flex items-center gap-2 min-h-[42px] whitespace-nowrap ${
             activeTab === 'materials'
-              ? 'border-amber-500 text-amber-700'
-              : 'border-transparent text-neutral-500 hover:text-neutral-900'
+              ? 'border-amber-500 text-amber-900'
+              : 'border-transparent text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100/50'
           }`}
         >
           <FileText className="w-4 h-4" /> Slide Handouts
         </button>
         <button
           onClick={() => setActiveTab('quizzes')}
-          className={`px-5 py-3 text-xs font-bold border-b-2 transition-all cursor-pointer flex items-center gap-2 ${
+          className={`px-5 py-3 text-xs font-bold border-b-2 transition-all cursor-pointer flex items-center gap-2 min-h-[42px] whitespace-nowrap ${
             activeTab === 'quizzes'
-              ? 'border-amber-500 text-amber-700'
-              : 'border-transparent text-neutral-500 hover:text-neutral-900'
+              ? 'border-amber-500 text-amber-900'
+              : 'border-transparent text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100/50'
           }`}
         >
           <Award className="w-4 h-4" /> Quizzes & Attempts ({course.quizzes?.length || 0})

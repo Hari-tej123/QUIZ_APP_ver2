@@ -88,14 +88,14 @@ export default function FacultyDashboard() {
       <div className="bg-gradient-to-r from-primary-900 via-primary-800 to-primary-950 rounded-2xl p-6 md:p-8 shadow-premium text-white flex flex-col md:flex-row md:items-center justify-between gap-6 relative overflow-hidden">
         <div className="absolute w-80 h-80 bg-primary-700/20 rounded-full blur-3xl -top-20 -right-20 pointer-events-none" />
         <div className="flex flex-col max-w-xl gap-2 z-10">
-          <h3 className="text-xl font-bold tracking-tight">Curriculum Design Workspace</h3>
-          <p className="text-xs text-primary-200 leading-relaxed mt-1">
+          <h3 className="text-xl font-bold tracking-tight text-white font-display">Curriculum Design Workspace</h3>
+          <p className="text-xs text-slate-200 leading-relaxed mt-1">
             Access your course listings to organize lectures, upload PDF/PPT slides, config exam countdown constraints, and import question sheets via Excel templates.
           </p>
         </div>
         <div className="shrink-0 z-10">
           <Link to="/faculty/courses">
-            <Button className="bg-white hover:bg-neutral-100 text-primary-900 flex items-center gap-1.5 font-bold shadow-premium">
+            <Button className="bg-white hover:bg-neutral-100 text-primary-950 flex items-center gap-1.5 font-bold shadow-xs min-h-[42px] px-5">
               Manage Courses <ArrowRight className="w-4 h-4" />
             </Button>
           </Link>

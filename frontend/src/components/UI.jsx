@@ -15,23 +15,23 @@ export const Button = ({
   className = '',
   ...props
 }) => {
-  const baseStyles = 'inline-flex items-center justify-center font-semibold rounded-xl transition-all duration-150 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none cursor-pointer';
+  const baseStyles = 'inline-flex items-center justify-center font-semibold rounded-xl transition-all duration-150 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none cursor-pointer select-none';
 
   const variants = {
-    primary: 'bg-primary-600 hover:bg-primary-700 text-white shadow-sm hover:shadow-indigo focus:ring-primary-500 border border-transparent',
-    amber: 'bg-amber-500 hover:bg-amber-600 text-white shadow-sm hover:shadow-amber focus:ring-amber-500 border border-transparent',
-    secondary: 'bg-white hover:bg-neutral-50 text-neutral-800 border border-neutral-200/90 shadow-xs hover:border-neutral-300 focus:ring-neutral-400',
-    outlineIndigo: 'bg-primary-50/50 hover:bg-primary-100/70 text-primary-700 border border-primary-200 focus:ring-primary-500',
-    outlineAmber: 'bg-amber-50/50 hover:bg-amber-100/70 text-amber-800 border border-amber-200 focus:ring-amber-500',
-    ghost: 'hover:bg-neutral-100/80 text-neutral-600 hover:text-neutral-900 focus:ring-neutral-400',
-    destructive: 'bg-danger-500 hover:bg-danger-600 text-white shadow-sm focus:ring-danger-500 border border-transparent'
+    primary: 'bg-primary-600 hover:bg-primary-700 text-white shadow-xs hover:shadow-indigo focus-visible:ring-primary-500 border border-transparent',
+    amber: 'bg-amber-500 hover:bg-amber-600 text-white shadow-xs hover:shadow-amber focus-visible:ring-amber-500 border border-transparent',
+    secondary: 'bg-white hover:bg-neutral-50 text-neutral-800 border border-neutral-200/90 shadow-xs hover:border-neutral-300 focus-visible:ring-neutral-400',
+    outlineIndigo: 'bg-primary-50 hover:bg-primary-100 text-primary-800 border border-primary-200 focus-visible:ring-primary-500',
+    outlineAmber: 'bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 focus-visible:ring-amber-500',
+    ghost: 'hover:bg-neutral-100 text-neutral-600 hover:text-neutral-900 focus-visible:ring-neutral-400',
+    destructive: 'bg-danger-500 hover:bg-danger-600 text-white shadow-xs focus-visible:ring-danger-500 border border-transparent'
   };
 
   const sizes = {
-    xs: 'px-2.5 py-1 text-xs rounded-lg gap-1.5',
-    sm: 'px-3.5 py-1.5 text-xs rounded-lg gap-1.5',
-    md: 'px-4.5 py-2.2 text-sm rounded-xl gap-2',
-    lg: 'px-6 py-3 text-base rounded-xl gap-2.5'
+    xs: 'px-3 py-1.5 text-xs rounded-lg gap-1.5 min-h-[32px]',
+    sm: 'px-3.5 py-2 text-xs rounded-lg gap-1.5 min-h-[36px]',
+    md: 'px-4.5 py-2.5 text-sm rounded-xl gap-2 min-h-[42px]',
+    lg: 'px-6 py-3.5 text-base rounded-xl gap-2.5 min-h-[48px]'
   };
 
   return (
@@ -43,7 +43,7 @@ export const Button = ({
       {...props}
     >
       {isLoading && (
-        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-current" fill="none" viewBox="0 0 24 24">
+        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-current shrink-0" fill="none" viewBox="0 0 24 24" aria-hidden="true">
           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
         </svg>
@@ -59,17 +59,17 @@ export const Button = ({
 export const Badge = ({ children, variant = 'neutral', className = '' }) => {
   const variants = {
     neutral: 'bg-neutral-100 text-neutral-700 border border-neutral-200/80',
-    primary: 'bg-primary-50 text-primary-700 border border-primary-200/80',
-    amber: 'bg-amber-50 text-amber-800 border border-amber-200/80',
-    trackCompetitive: 'bg-primary-50 text-primary-700 border border-primary-200/90 font-bold',
-    trackCollege: 'bg-amber-50 text-amber-800 border border-amber-200/90 font-bold',
-    success: 'bg-emerald-50 text-emerald-700 border border-emerald-200/80',
-    warning: 'bg-amber-50 text-amber-700 border border-amber-200/80',
-    danger: 'bg-rose-50 text-rose-700 border border-rose-200/80',
-    info: 'bg-blue-50 text-blue-700 border border-blue-200/80',
+    primary: 'bg-primary-50 text-primary-800 border border-primary-200/80',
+    amber: 'bg-amber-50 text-amber-900 border border-amber-200/80',
+    trackCompetitive: 'bg-primary-50 text-primary-800 border border-primary-200/90 font-bold',
+    trackCollege: 'bg-amber-50 text-amber-900 border border-amber-200/90 font-bold',
+    success: 'bg-emerald-50 text-emerald-800 border border-emerald-200/80 font-medium',
+    warning: 'bg-amber-50 text-amber-900 border border-amber-200/80 font-medium',
+    danger: 'bg-rose-50 text-rose-800 border border-rose-200/80 font-medium',
+    info: 'bg-blue-50 text-blue-900 border border-blue-200/80 font-medium',
     roleAdmin: 'bg-neutral-900 text-white font-bold',
-    roleFaculty: 'bg-primary-100 text-primary-800 border border-primary-200 font-bold',
-    roleStudent: 'bg-blue-100 text-blue-800 border border-blue-200 font-bold'
+    roleFaculty: 'bg-primary-100 text-primary-900 border border-primary-200 font-bold',
+    roleStudent: 'bg-blue-100 text-blue-900 border border-blue-200 font-bold'
   };
 
   return (
@@ -130,15 +130,15 @@ export const StatCard = ({ title, value, subtitle, icon, accent = 'primary', tre
       valueColor: 'text-neutral-900'
     },
     amber: {
-      iconBg: 'bg-amber-50 border-amber-100 text-amber-600',
+      iconBg: 'bg-amber-50 border-amber-100 text-amber-700',
       valueColor: 'text-neutral-900'
     },
     emerald: {
-      iconBg: 'bg-emerald-50 border-emerald-100 text-emerald-600',
+      iconBg: 'bg-emerald-50 border-emerald-100 text-emerald-700',
       valueColor: 'text-neutral-900'
     },
     blue: {
-      iconBg: 'bg-blue-50 border-blue-100 text-blue-600',
+      iconBg: 'bg-blue-50 border-blue-100 text-blue-700',
       valueColor: 'text-neutral-900'
     }
   };
@@ -146,12 +146,14 @@ export const StatCard = ({ title, value, subtitle, icon, accent = 'primary', tre
   const style = accentStyles[accent] || accentStyles.primary;
 
   return (
-    <div className="bg-white border border-neutral-200/80 rounded-2xl p-5 shadow-card hover:shadow-card-hover transition-all duration-200 flex items-start justify-between gap-4">
-      <div className="min-w-0 flex-1">
-        <span className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">{title}</span>
-        <h3 className={`text-2xl sm:text-3xl font-extrabold mt-1.5 font-display tracking-tight ${style.valueColor}`}>{value}</h3>
+    <div className="bg-white border border-neutral-200/80 rounded-2xl p-5 shadow-card hover:shadow-card-hover transition-all duration-200 flex items-start justify-between gap-4 h-full">
+      <div className="min-w-0 flex-1 flex flex-col justify-between h-full">
+        <div>
+          <span className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">{title}</span>
+          <h3 className={`text-2xl sm:text-3xl font-extrabold mt-1.5 font-display tracking-tight ${style.valueColor}`}>{value}</h3>
+        </div>
         {subtitle && (
-          <p className="text-xs text-neutral-500 mt-1 flex items-center gap-1.5 font-medium">
+          <p className="text-xs text-neutral-500 mt-2 flex items-center gap-1.5 font-medium">
             {subtitle}
           </p>
         )}
@@ -172,7 +174,7 @@ export const Card = ({ children, title, subtitle, action, footer, className = ''
       {(title || subtitle || action) && (
         <div className="px-6 py-4.5 border-b border-neutral-100 flex items-center justify-between gap-4">
           <div>
-            {title && <h3 className="text-base font-bold text-neutral-900 tracking-tight">{title}</h3>}
+            {title && <h3 className="text-base font-bold text-neutral-900 tracking-tight font-display">{title}</h3>}
             {subtitle && <p className="text-xs text-neutral-500 mt-0.5">{subtitle}</p>}
           </div>
           {action && <div>{action}</div>}
@@ -201,7 +203,7 @@ export const EmptyState = ({
       <div className="w-16 h-16 rounded-2xl bg-neutral-100 border border-neutral-200/80 flex items-center justify-center text-neutral-400 mb-4 shadow-xs">
         {icon}
       </div>
-      <h3 className="text-base font-bold text-neutral-800 tracking-tight">{title}</h3>
+      <h3 className="text-base font-bold text-neutral-900 tracking-tight font-display">{title}</h3>
       <p className="text-xs text-neutral-500 leading-relaxed mt-1.5 mb-5 max-w-sm">{description}</p>
       {actionLabel && onAction && (
         <Button variant={actionVariant} size="sm" onClick={onAction}>
@@ -240,17 +242,17 @@ export const Input = ({
         onChange={onChange}
         placeholder={placeholder}
         required={required}
-        className={`w-full px-3.5 py-2.5 text-sm rounded-xl border bg-white text-neutral-800 transition-all placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-offset-0 ${
+        className={`w-full px-3.5 py-2.5 min-h-[42px] text-sm rounded-xl border bg-white text-neutral-800 transition-all placeholder:text-neutral-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-0 ${
           error
-            ? 'border-danger-500 focus:border-danger-500 focus:ring-danger-500/20'
-            : 'border-neutral-200/90 focus:border-primary-500 focus:ring-primary-500/20 shadow-xs'
+            ? 'border-danger-500 focus-visible:border-danger-500 focus-visible:ring-danger-500/20'
+            : 'border-neutral-200/90 focus-visible:border-primary-500 focus-visible:ring-primary-500/20 shadow-xs'
         }`}
         {...props}
       />
       {error ? (
-        <span className="text-xs text-danger-500 font-medium">{error}</span>
+        <span className="text-xs text-danger-600 font-medium">{error}</span>
       ) : helperText ? (
-        <span className="text-[11px] text-neutral-400 font-medium">{helperText}</span>
+        <span className="text-[11px] text-neutral-500 font-medium">{helperText}</span>
       ) : null}
     </div>
   );
@@ -277,10 +279,10 @@ export const Select = ({
         value={value}
         onChange={onChange}
         required={required}
-        className={`w-full px-3.5 py-2.5 text-sm rounded-xl border bg-white text-neutral-800 transition-all focus:outline-none focus:ring-2 focus:ring-offset-0 ${
+        className={`w-full px-3.5 py-2.5 min-h-[42px] text-sm rounded-xl border bg-white text-neutral-800 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-0 ${
           error
-            ? 'border-danger-500 focus:border-danger-500 focus:ring-danger-500/20'
-            : 'border-neutral-200/90 focus:border-primary-500 focus:ring-primary-500/20 shadow-xs'
+            ? 'border-danger-500 focus-visible:border-danger-500 focus-visible:ring-danger-500/20'
+            : 'border-neutral-200/90 focus-visible:border-primary-500 focus-visible:ring-primary-500/20 shadow-xs'
         }`}
         {...props}
       >
@@ -291,7 +293,7 @@ export const Select = ({
           </option>
         ))}
       </select>
-      {error && <span className="text-xs text-danger-500 font-medium">{error}</span>}
+      {error && <span className="text-xs text-danger-600 font-medium">{error}</span>}
     </div>
   );
 };
@@ -321,17 +323,17 @@ export const Textarea = ({
         placeholder={placeholder}
         rows={rows}
         required={required}
-        className={`w-full px-3.5 py-2.5 text-sm rounded-xl border bg-white text-neutral-800 transition-all placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-offset-0 ${
+        className={`w-full px-3.5 py-2.5 text-sm rounded-xl border bg-white text-neutral-800 transition-all placeholder:text-neutral-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-0 ${
           error
-            ? 'border-danger-500 focus:border-danger-500 focus:ring-danger-500/20'
-            : 'border-neutral-200/90 focus:border-primary-500 focus:ring-primary-500/20 shadow-xs'
+            ? 'border-danger-500 focus-visible:border-danger-500 focus-visible:ring-danger-500/20'
+            : 'border-neutral-200/90 focus-visible:border-primary-500 focus-visible:ring-primary-500/20 shadow-xs'
         }`}
         {...props}
       />
       {error ? (
-        <span className="text-xs text-danger-500 font-medium">{error}</span>
+        <span className="text-xs text-danger-600 font-medium">{error}</span>
       ) : helperText ? (
-        <span className="text-[11px] text-neutral-400 font-medium">{helperText}</span>
+        <span className="text-[11px] text-neutral-500 font-medium">{helperText}</span>
       ) : null}
     </div>
   );
@@ -353,14 +355,18 @@ export const Modal = ({ isOpen, onClose, title, children, footer, size = 'md' })
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4">
       {/* Backdrop */}
-      <div className="fixed inset-0 bg-neutral-900/50 backdrop-blur-xs transition-opacity animate-fade-in" onClick={onClose} />
+      <div className="fixed inset-0 bg-neutral-900/50 backdrop-blur-xs transition-opacity animate-fade-in" onClick={onClose} aria-hidden="true" />
 
       {/* Dialog container */}
       <div className={`relative bg-white rounded-2xl shadow-card-hover w-full ${sizes[size]} z-10 overflow-hidden animate-slide-up border border-neutral-200/80`}>
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4.5 border-b border-neutral-100">
           <h3 className="text-lg font-bold text-neutral-900 tracking-tight font-display">{title}</h3>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600 transition-all cursor-pointer">
+          <button
+            onClick={onClose}
+            className="p-2 rounded-xl text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600 transition-all cursor-pointer min-w-[36px] min-h-[36px] flex items-center justify-center"
+            aria-label="Close dialog"
+          >
             <X className="w-5 h-5" />
           </button>
         </div>

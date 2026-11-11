@@ -204,9 +204,9 @@ export default function DashboardLayout({ children }) {
           </span>
           {activeLinks.map((link) => {
             const isActive = `${location.pathname}${location.search}` === link.path;
-            let activeStyle = 'bg-primary-50 text-primary-700 border border-primary-200 font-bold shadow-xs';
+            let activeStyle = 'bg-primary-50 text-primary-800 border border-primary-200/90 font-bold shadow-xs';
             if (link.track === 'college') {
-              activeStyle = 'bg-amber-50 text-amber-800 border border-amber-200 font-bold shadow-xs';
+              activeStyle = 'bg-amber-50 text-amber-900 border border-amber-200/90 font-bold shadow-xs';
             }
 
             return (
@@ -216,17 +216,17 @@ export default function DashboardLayout({ children }) {
                 className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 ${
                   isActive
                     ? activeStyle
-                    : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100/70 border border-transparent'
+                    : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100/80 border border-transparent'
                 }`}
               >
                 <div className="flex items-center gap-3.5">
-                  <span className={isActive ? (link.track === 'college' ? 'text-amber-600' : 'text-primary-600') : 'text-neutral-400'}>
+                  <span className={isActive ? (link.track === 'college' ? 'text-amber-700' : 'text-primary-700') : 'text-neutral-400'}>
                     {link.icon}
                   </span>
                   <span>{link.label}</span>
                 </div>
                 {link.badge && (
-                  <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-primary-100 text-primary-800">
+                  <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-primary-100 text-primary-800 border border-primary-200">
                     {link.badge}
                   </span>
                 )}
@@ -243,15 +243,16 @@ export default function DashboardLayout({ children }) {
             </div>
             <div className="min-w-0 flex flex-col">
               <div className="flex items-center gap-1.5 truncate">
-                <span className="text-xs font-bold text-neutral-900 truncate">{user?.name}</span>
+                <span className="text-xs font-bold text-neutral-900 truncate" title={user?.name}>{user?.name}</span>
               </div>
-              <span className="text-[10px] text-neutral-400 truncate">{user?.email}</span>
+              <span className="text-[10px] text-neutral-500 truncate font-medium" title={user?.email}>{user?.email}</span>
             </div>
           </div>
           <button
             onClick={handleLogout}
-            className="p-2 text-neutral-400 hover:text-danger-600 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer"
+            className="p-2 text-neutral-400 hover:text-danger-600 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer min-w-[36px] min-h-[36px] flex items-center justify-center"
             title="Log out"
+            aria-label="Log out"
           >
             <LogOut className="w-4 h-4" />
           </button>
@@ -329,12 +330,12 @@ export default function DashboardLayout({ children }) {
           <div className="flex items-center gap-3">
             <button
               onClick={() => setSidebarOpen(true)}
-              className="lg:hidden p-2 rounded-xl text-neutral-500 hover:bg-neutral-100 transition-colors cursor-pointer"
+              className="lg:hidden p-2 rounded-xl text-neutral-500 hover:bg-neutral-100 transition-colors cursor-pointer min-w-[40px] min-h-[40px] flex items-center justify-center"
               aria-label="Toggle Navigation Sidebar"
             >
               <Menu className="w-5 h-5" />
             </button>
-            <span className="text-xs font-bold text-neutral-400 tracking-wider hidden sm:inline-block">
+            <span className="text-xs font-bold text-neutral-500 tracking-wider hidden sm:inline-block">
               {getBreadcrumbs()}
             </span>
           </div>
@@ -342,20 +343,25 @@ export default function DashboardLayout({ children }) {
           {/* Right Header User Dropdown */}
           <div className="flex items-center gap-3 relative">
             <Link to="/">
-              <Button variant="ghost" size="xs" className="text-xs font-semibold text-neutral-500 hidden sm:inline-flex">
+              <Button variant="ghost" size="xs" className="text-xs font-semibold text-neutral-600 hidden sm:inline-flex">
                 Landing Page
               </Button>
             </Link>
 
-            <button className="p-2 rounded-xl text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 transition-all relative cursor-pointer">
+            <button
+              className="p-2 rounded-xl text-neutral-500 hover:bg-neutral-100 hover:text-neutral-700 transition-all relative cursor-pointer min-w-[40px] min-h-[40px] flex items-center justify-center"
+              aria-label="View notifications"
+            >
               <Bell className="w-4.5 h-4.5" />
-              <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-primary-600 border-2 border-white" />
+              <span className="absolute top-2.5 right-2.5 w-2 h-2 rounded-full bg-primary-600 ring-2 ring-white" />
             </button>
 
             <div className="relative">
               <button
                 onClick={() => setAvatarMenuOpen(!avatarMenuOpen)}
-                className="flex items-center gap-2 p-1 rounded-xl hover:bg-neutral-100 transition-all focus:outline-none cursor-pointer"
+                className="flex items-center gap-2 p-1 rounded-xl hover:bg-neutral-100 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 cursor-pointer min-w-[40px] min-h-[40px]"
+                aria-label="User account menu"
+                aria-expanded={avatarMenuOpen}
               >
                 <div className="w-8.5 h-8.5 rounded-xl bg-primary-600 text-white flex items-center justify-center font-bold text-xs shadow-xs">
                   {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
@@ -364,11 +370,11 @@ export default function DashboardLayout({ children }) {
 
               {avatarMenuOpen && (
                 <>
-                  <div className="fixed inset-0 z-10" onClick={() => setAvatarMenuOpen(false)} />
+                  <div className="fixed inset-0 z-10" onClick={() => setAvatarMenuOpen(false)} aria-hidden="true" />
                   <div className="absolute right-0 mt-2.5 w-56 bg-white rounded-2xl border border-neutral-200/90 shadow-card-hover py-2 z-20 animate-fade-in">
                     <div className="px-4 py-2.5 border-b border-neutral-100">
-                      <p className="text-xs font-bold text-neutral-900 truncate">{user?.name}</p>
-                      <p className="text-[10px] text-neutral-400 truncate">{user?.email}</p>
+                      <p className="text-xs font-bold text-neutral-900 truncate" title={user?.name}>{user?.name}</p>
+                      <p className="text-[10px] text-neutral-500 truncate font-medium" title={user?.email}>{user?.email}</p>
                     </div>
                     <button
                       onClick={() => {
@@ -396,10 +402,10 @@ export default function DashboardLayout({ children }) {
         <main className="flex-1 overflow-y-auto px-6 py-6 md:px-8 bg-neutral-50">
           {user?.approvalStatus === 'PENDING' && (
             <div className="mb-6 rounded-2xl border border-amber-300 bg-amber-50 p-4 shadow-xs flex items-start gap-3 animate-slide-up">
-              <span className="text-xl">⚠️</span>
+              <span className="text-xl" role="img" aria-label="Warning">⚠️</span>
               <div>
-                <h4 className="text-sm font-bold text-amber-900 font-display">Faculty Account Verification Pending</h4>
-                <p className="text-xs text-amber-800 mt-0.5 leading-relaxed">
+                <h4 className="text-sm font-bold text-amber-950 font-display">Faculty Account Verification Pending</h4>
+                <p className="text-xs text-amber-900 mt-0.5 leading-relaxed font-medium">
                   Your faculty account is awaiting admin verification. You can explore the platform, but creating or publishing courses, quizzes, and questions will remain disabled until an administrator verifies your affiliation.
                 </p>
               </div>

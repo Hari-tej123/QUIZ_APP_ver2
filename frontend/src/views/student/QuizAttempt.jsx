@@ -301,11 +301,11 @@ export default function QuizAttempt() {
         <div className="p-8 rounded-3xl bg-gradient-to-r from-neutral-900 via-indigo-950 to-primary-950 text-white shadow-xl space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="space-y-1">
-              <span className="px-3 py-1 rounded-full text-xs font-bold bg-primary-500/20 text-primary-300 border border-primary-500/30">
+              <span className="px-3 py-1 rounded-full text-xs font-bold bg-primary-500/20 text-primary-200 border border-primary-500/30">
                 {att.mode === 'practice' ? '📖 Practice Session Complete' : '⏱️ Timed Mock Results'}
               </span>
-              <h1 className="text-2xl sm:text-3xl font-extrabold font-display">{att.quizTitle}</h1>
-              <p className="text-xs text-neutral-300">Topic: {att.topicName} • Author: {att.author?.name}</p>
+              <h1 className="text-2xl sm:text-3xl font-extrabold font-display text-white tracking-tight">{att.quizTitle}</h1>
+              <p className="text-xs text-slate-200">Topic: {att.topicName} • Author: {att.author?.name}</p>
             </div>
 
             <div className="flex items-center gap-3">

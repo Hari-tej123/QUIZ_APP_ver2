@@ -123,8 +123,8 @@ export default function EarningsPayouts() {
             </div>
           </div>
           <div>
-            <h2 className="text-4xl font-extrabold font-display">${balance.toFixed(2)}</h2>
-            <p className="text-xs text-emerald-300/80 mt-1">
+            <h2 className="text-4xl font-extrabold font-display text-white tracking-tight">${balance.toFixed(2)}</h2>
+            <p className="text-xs text-emerald-200 mt-1 font-medium">
               Minimum withdrawal: ${parseFloat(rules.minWithdrawal || 20).toFixed(2)}
             </p>
           </div>
@@ -134,30 +134,30 @@ export default function EarningsPayouts() {
         <div className="p-6 rounded-2xl bg-white border border-neutral-200/80 shadow-xs space-y-4">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-wider text-neutral-500">Lifetime Earnings</span>
-            <div className="w-9 h-9 rounded-xl bg-primary-50 text-primary-600 flex items-center justify-center">
+            <div className="w-9 h-9 rounded-xl bg-primary-50 text-primary-600 flex items-center justify-center border border-primary-100">
               <TrendingUp className="w-5 h-5" />
             </div>
           </div>
           <div>
-            <h2 className="text-4xl font-extrabold text-neutral-900 font-display">${totalEarned.toFixed(2)}</h2>
-            <p className="text-xs text-neutral-400 mt-1">Aggregated bounties & attempt rev-shares</p>
+            <h2 className="text-4xl font-extrabold text-neutral-900 font-display tracking-tight">${totalEarned.toFixed(2)}</h2>
+            <p className="text-xs text-neutral-500 mt-1 font-medium">Aggregated bounties & attempt rev-shares</p>
           </div>
         </div>
 
         {/* Platform Payout Rules */}
-        <div className="p-6 rounded-2xl bg-neutral-900 text-white shadow-xs space-y-3">
-          <span className="text-xs font-bold uppercase tracking-wider text-primary-400 block">Payout Rate Structure</span>
+        <div className="p-6 rounded-2xl bg-neutral-900 text-white shadow-xs space-y-3 border border-neutral-800">
+          <span className="text-xs font-bold uppercase tracking-wider text-primary-300 block">Payout Rate Structure</span>
           <div className="space-y-2 text-xs">
-            <div className="flex justify-between items-center py-1 border-b border-neutral-800">
-              <span className="text-neutral-400">Approved Quiz Bounty:</span>
+            <div className="flex justify-between items-center py-1.5 border-b border-neutral-800">
+              <span className="text-slate-300">Approved Quiz Bounty:</span>
               <span className="font-bold text-emerald-400">${parseFloat(rules.bountyPerQuiz || 15).toFixed(2)} / set</span>
             </div>
-            <div className="flex justify-between items-center py-1 border-b border-neutral-800">
-              <span className="text-neutral-400">Student Attempt RevShare:</span>
+            <div className="flex justify-between items-center py-1.5 border-b border-neutral-800">
+              <span className="text-slate-300">Student Attempt RevShare:</span>
               <span className="font-bold text-emerald-400">${parseFloat(rules.revSharePerAttempt || 0.1).toFixed(2)} / attempt</span>
             </div>
-            <div className="flex justify-between items-center py-1">
-              <span className="text-neutral-400">Min. Payout Threshold:</span>
+            <div className="flex justify-between items-center py-1.5">
+              <span className="text-slate-300">Min. Payout Threshold:</span>
               <span className="font-bold text-white">${parseFloat(rules.minWithdrawal || 20).toFixed(2)}</span>
             </div>
           </div>

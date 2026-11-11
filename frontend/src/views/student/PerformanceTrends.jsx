@@ -98,14 +98,14 @@ export default function PerformanceTrends() {
         {/* Peer Rank & Percentile */}
         <div className="p-6 rounded-2xl bg-gradient-to-br from-indigo-900 to-primary-950 text-white shadow-lg space-y-3">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-primary-300">Cohort Ranking</span>
+            <span className="text-xs font-bold uppercase tracking-wider text-primary-200">Cohort Ranking</span>
             <Award className="w-5 h-5 text-amber-400" />
           </div>
           <div>
-            <h3 className="text-3xl font-extrabold font-display">
+            <h3 className="text-3xl font-extrabold font-display text-white">
               {myStats.rank ? `#${myStats.rank}` : 'Top Rank'}
             </h3>
-            <p className="text-xs text-primary-200 mt-1">
+            <p className="text-xs text-slate-200 mt-1">
               Top {myStats.percentile || 95}% percentile among {myStats.totalPeers || peersLeaderboard.length} peers
             </p>
           </div>

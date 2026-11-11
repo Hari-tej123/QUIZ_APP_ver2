@@ -92,25 +92,25 @@ export default function BrowseCourses() {
             <Badge variant="trackCollege">
               🏛️ College & University Track
             </Badge>
-            <span className="text-xs text-neutral-400 font-semibold">• Course → Unit/Module → Topic</span>
+            <span className="text-xs text-neutral-500 font-semibold">• Course → Unit/Module → Topic</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-neutral-900 tracking-tight font-display">
             University Courses & Curricula
           </h1>
-          <p className="text-xs sm:text-sm text-neutral-500 mt-2 leading-relaxed font-medium">
-            Explore university-level subjects such as <strong className="text-neutral-800">Data Structures & Algorithms, Computer Networks, Linear Algebra, Operating Systems, DBMS, and OOP</strong>. Download lecture notes and take topic-level assessments.
+          <p className="text-xs sm:text-sm text-neutral-600 mt-2 leading-relaxed font-medium">
+            Explore university-level subjects such as <strong className="text-neutral-900 font-semibold">Data Structures & Algorithms, Computer Networks, Linear Algebra, Operating Systems, DBMS, and OOP</strong>. Download lecture notes and take topic-level assessments.
           </p>
         </div>
 
         <div className="flex items-center gap-3 shrink-0">
-          <div className="bg-amber-50 border border-amber-100 p-3.5 rounded-2xl text-center">
-            <span className="text-2xl font-black text-amber-700 font-display block">
+          <div className="bg-amber-50 border border-amber-200/80 p-3.5 rounded-2xl text-center min-w-[90px]">
+            <span className="text-2xl font-black text-amber-800 font-display block">
               {courses.filter(c => c.isEnrolled).length}
             </span>
-            <span className="text-[10px] font-bold uppercase tracking-wider text-amber-600">Enrolled</span>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-amber-900">Enrolled</span>
           </div>
-          <div className="bg-neutral-50 border border-neutral-200 p-3.5 rounded-2xl text-center">
-            <span className="text-2xl font-black text-neutral-800 font-display block">{courses.length}</span>
+          <div className="bg-neutral-50 border border-neutral-200 p-3.5 rounded-2xl text-center min-w-[90px]">
+            <span className="text-2xl font-black text-neutral-900 font-display block">{courses.length}</span>
             <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Available</span>
           </div>
         </div>
@@ -119,23 +119,23 @@ export default function BrowseCourses() {
       {/* ─── SEARCH & SUBJECT FILTER CHIPS ───────────────────────────────── */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
         <div className="relative w-full sm:w-80">
-          <Search className="absolute left-3.5 top-3 h-4 w-4 text-neutral-400" />
+          <Search className="absolute left-3.5 top-3.5 h-4 w-4 text-neutral-400" />
           <input
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Search by course title, subject, or professor..."
-            className="w-full pl-10 pr-4 py-2.2 text-sm border border-neutral-200/90 bg-white rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 shadow-xs"
+            className="w-full pl-10 pr-4 py-2.5 min-h-[42px] text-sm border border-neutral-200/90 bg-white text-neutral-800 placeholder:text-neutral-400 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/20 focus-visible:border-amber-500 shadow-xs"
           />
         </div>
 
-        <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0">
+        <div className="flex items-center gap-2 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0">
           <button
             onClick={() => setSelectedSubjectFilter('all')}
-            className={`px-3.5 py-1.5 text-xs font-semibold rounded-xl whitespace-nowrap transition-all cursor-pointer ${
+            className={`px-3.5 py-2 min-h-[36px] text-xs font-semibold rounded-xl whitespace-nowrap transition-all cursor-pointer ${
               selectedSubjectFilter === 'all'
                 ? 'bg-amber-500 text-white shadow-xs font-bold'
-                : 'bg-white text-neutral-600 hover:bg-neutral-100 border border-neutral-200/80'
+                : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200/80'
             }`}
           >
             All Subjects
@@ -144,10 +144,10 @@ export default function BrowseCourses() {
             <button
               key={subj}
               onClick={() => setSelectedSubjectFilter(subj)}
-              className={`px-3.5 py-1.5 text-xs font-semibold rounded-xl whitespace-nowrap transition-all cursor-pointer ${
+              className={`px-3.5 py-2 min-h-[36px] text-xs font-semibold rounded-xl whitespace-nowrap transition-all cursor-pointer ${
                 selectedSubjectFilter === subj
                   ? 'bg-amber-500 text-white shadow-xs font-bold'
-                  : 'bg-white text-neutral-600 hover:bg-neutral-100 border border-neutral-200/80'
+                  : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200/80'
               }`}
             >
               {subj}
