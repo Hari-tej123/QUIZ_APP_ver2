@@ -29,6 +29,11 @@ const validateContributorTrack = async (req, res, next) => {
       return next();
     }
 
+    // Block any user whose account is pending approval from creating content
+    if (user.approvalStatus === 'PENDING' && user.contributorStatus !== 'approved') {
+      return next(new ForbiddenError('Awaiting approval. Your faculty account is pending verification by an administrator.'));
+    }
+
     // Determine normalized track from body or query
     const rawTrack = req.body?.track || req.body?.trackType || req.query?.track || req.query?.trackType || 'COMPETITIVE';
     const normalizedTrack = String(rawTrack).toUpperCase();

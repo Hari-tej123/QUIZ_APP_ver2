@@ -45,6 +45,9 @@ const findOwnedQuiz = async (id, userId, transaction) => {
 
 exports.updateDraft = async (req, res, next) => {
   try {
+    if (req.user?.approvalStatus === 'PENDING' && req.user?.contributorStatus !== 'approved') {
+      throw new ForbiddenError('Awaiting approval. Your faculty account is pending verification by an administrator.');
+    }
     const quiz = await findOwnedQuiz(req.params.quizId, req.user.id);
     if (!['DRAFT', 'REJECTED'].includes(quiz.status)) {
       throw new ConflictError('Only draft or rejected quizzes can be edited. Published quizzes must be archived before creating a new version.');
@@ -80,6 +83,9 @@ exports.updateDraft = async (req, res, next) => {
 
 exports.submitForReview = async (req, res, next) => {
   try {
+    if (req.user?.approvalStatus === 'PENDING' && req.user?.contributorStatus !== 'approved') {
+      throw new ForbiddenError('Awaiting approval. Your faculty account is pending verification by an administrator.');
+    }
     const quiz = await findOwnedQuiz(req.params.quizId, req.user.id);
     if (!['DRAFT', 'REJECTED'].includes(quiz.status)) throw new ConflictError('Only drafts or rejected quizzes can be submitted.');
     const count = await Question.count({ where: { quizId: quiz.id } });
@@ -101,6 +107,37 @@ exports.submitForReview = async (req, res, next) => {
         status: 'pending'
       }
     }).then(([submission]) => submission.update({ status: 'pending', title: quiz.title }));
+    res.status(200).json({ status: 'success', data: quiz });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.directPublish = async (req, res, next) => {
+  try {
+    const quiz = await findOwnedQuiz(req.params.quizId, req.user.id);
+    if (!['DRAFT', 'REJECTED'].includes(quiz.status)) throw new ConflictError('Only drafts or rejected quizzes can be published directly.');
+
+    quiz.status = 'PUBLISHED';
+    quiz.isPublished = true;
+    quiz.publishedBy = req.user.id;
+    quiz.publishedAt = new Date();
+    quiz.rejectionReason = null;
+    await quiz.save();
+
+    await Question.update({ status: 'published' }, { where: { quizId: quiz.id } });
+    await ContentSubmission.findOrCreate({
+      where: { quizId: quiz.id, contentType: 'quiz' },
+      defaults: {
+        contributorId: quiz.ownerId || quiz.authorId,
+        contentType: 'quiz',
+        quizId: quiz.id,
+        title: quiz.title,
+        trackType: quiz.trackType || 'competitive',
+        status: 'approved'
+      }
+    }).then(([submission]) => submission.update({ status: 'approved', title: quiz.title }));
+
     res.status(200).json({ status: 'success', data: quiz });
   } catch (err) {
     next(err);

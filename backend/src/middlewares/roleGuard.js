@@ -21,7 +21,8 @@ module.exports = (...allowedRoles) => {
 
     if (canonicalRole(req.user.role) === 'EDUCATOR' &&
       ['contributor', 'faculty'].includes(String(req.user.role).toLowerCase()) &&
-      req.user.contributorStatus !== 'approved') {
+      req.user.contributorStatus !== 'approved' &&
+      req.user.approvalStatus !== 'APPROVED') {
       return next(new ForbiddenError('Your educator access has not been approved.'));
     }
 

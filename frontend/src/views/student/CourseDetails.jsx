@@ -27,7 +27,9 @@ export default function CourseDetails() {
   const fetchCourse = async () => {
     try {
       const response = await apiClient.get(`/student/courses/${courseId}`);
-      setCourse(response.data?.data || response.data);
+      const payload = response.data?.course || response.data?.data?.course || response.data?.data || response.data;
+      const courseObj = payload?.course ? { ...payload.course, isEnrolled: payload.isEnrolled ?? payload.course.isEnrolled } : payload;
+      setCourse(courseObj);
     } catch (err) {
       showError(err.message || 'Failed to load course details.');
       navigate('/student/courses');
@@ -409,7 +411,7 @@ export default function CourseDetails() {
                         <div className="flex items-center gap-2">
                           <h4 className="text-sm sm:text-base font-bold text-neutral-900 font-display">{quiz.title}</h4>
                           <Badge variant="amber">
-                            <Clock className="w-3 h-3" /> {quiz.duration} min
+                            <Clock className="w-3 h-3" /> {quiz.duration || quiz.durationMin || 15} min
                           </Badge>
                         </div>
                         <p className="text-xs text-neutral-500 mt-0.5 line-clamp-2 font-medium">{quiz.description}</p>

@@ -17,9 +17,12 @@ const {
   PlatformSetting,
   AuditLog,
   EducatorApplication,
+  Notification,
+  Institute,
   sequelize
 } = require('../config/database');
 const { BadRequestError, ConflictError, NotFoundError } = require('../utils/errors');
+const { Op } = require('sequelize');
 
 // ─── Existing Faculty Management ─────────────────────────────────────────────
 exports.addFaculty = async (req, res, next) => {
@@ -79,8 +82,30 @@ exports.addFaculty = async (req, res, next) => {
 
 exports.getFacultyList = async (req, res, next) => {
   try {
+    const where = {
+      role: 'EDUCATOR',
+      [Op.or]: [
+        { educatorType: 'COLLEGE' },
+        { educatorType: 'BOTH' },
+        { instituteId: { [Op.ne]: null } }
+      ]
+    };
+
+    if (req.query.status) {
+      const qStatus = String(req.query.status).toUpperCase();
+      if (['PENDING', 'APPROVED', 'REJECTED'].includes(qStatus)) {
+        where.approvalStatus = qStatus;
+      } else {
+        where.status = req.query.status;
+      }
+    }
+    if (req.query.approvalStatus) {
+      where.approvalStatus = String(req.query.approvalStatus).toUpperCase();
+    }
+
     const facultyList = await User.findAll({
-      where: { role: 'EDUCATOR', educatorType: 'COLLEGE' },
+      where,
+      include: [{ model: Institute, as: 'institute', required: false }],
       attributes: { exclude: ['password'] },
       order: [['createdAt', 'DESC']]
     });
@@ -89,6 +114,73 @@ exports.getFacultyList = async (req, res, next) => {
       status: 'success',
       results: facultyList.length,
       data: facultyList
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.approveFaculty = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const faculty = await User.findByPk(id);
+    if (!faculty) return next(new NotFoundError('Faculty member not found.'));
+
+    faculty.approvalStatus = 'APPROVED';
+    await faculty.save();
+
+    await Notification.create({
+      userId: faculty.id,
+      title: 'Faculty Account Approved',
+      message: 'Your faculty account has been verified and approved by the administrator. You can now manage courses and create quizzes.'
+    }).catch(() => {});
+
+    await AuditLog.create({
+      actorId: req.user.id,
+      action: 'faculty_approved',
+      targetId: faculty.id,
+      targetType: 'user',
+      metadata: { approvalStatus: 'APPROVED' }
+    }).catch(() => {});
+
+    res.status(200).json({
+      status: 'success',
+      message: 'Faculty account approved successfully.',
+      data: faculty
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.rejectFaculty = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+    const faculty = await User.findByPk(id);
+    if (!faculty) return next(new NotFoundError('Faculty member not found.'));
+
+    faculty.approvalStatus = 'REJECTED';
+    await faculty.save();
+
+    await Notification.create({
+      userId: faculty.id,
+      title: 'Faculty Account Rejected',
+      message: `Your faculty account verification was not approved. Reason: ${reason || 'Details could not be verified.'}`
+    }).catch(() => {});
+
+    await AuditLog.create({
+      actorId: req.user.id,
+      action: 'faculty_rejected',
+      targetId: faculty.id,
+      targetType: 'user',
+      metadata: { reason }
+    }).catch(() => {});
+
+    res.status(200).json({
+      status: 'success',
+      message: 'Faculty account rejected.',
+      data: faculty
     });
   } catch (err) {
     next(err);
@@ -366,6 +458,7 @@ exports.updateContributorStatus = async (req, res, next) => {
     contributor.contributorStatus = status;
     if (status === 'approved') {
       contributor.badge = badge || 'Verified Educator';
+      contributor.approvalStatus = 'APPROVED';
     } else if (status === 'rejected') {
       contributor.badge = null;
     }

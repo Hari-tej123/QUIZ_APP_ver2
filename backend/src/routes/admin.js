@@ -26,6 +26,10 @@ router.get('/dashboard-counts', quizWorkflowController.dashboardCounts);
 // Faculty Management
 router.post('/faculty', adminController.addFaculty);
 router.get('/faculty', adminController.getFacultyList);
+router.patch('/faculty/:id/approve', adminController.approveFaculty);
+router.put('/faculty/:id/approve', adminController.approveFaculty);
+router.patch('/faculty/:id/reject', adminController.rejectFaculty);
+router.put('/faculty/:id/reject', adminController.rejectFaculty);
 router.put('/faculty/:id', adminController.updateFaculty);
 router.put('/faculty/:id/deactivate', adminController.deactivateFaculty);
 router.get('/stats', adminController.getSystemStats);

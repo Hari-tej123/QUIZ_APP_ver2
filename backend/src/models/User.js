@@ -88,6 +88,25 @@ module.exports = (sequelize) => {
       type: DataTypes.STRING,
       allowNull: true
     },
+    designation: {
+      type: DataTypes.STRING(100),
+      allowNull: true
+    },
+    employeeId: {
+      type: DataTypes.STRING(120),
+      allowNull: true
+    },
+    approvalStatus: {
+      type: DataTypes.STRING(20),
+      allowNull: false,
+      defaultValue: 'APPROVED',
+      validate: { isIn: [['PENDING', 'APPROVED', 'REJECTED']] }
+    },
+    needsRoleSelection: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false
+    },
     subject: {
       type: DataTypes.STRING,
       allowNull: true

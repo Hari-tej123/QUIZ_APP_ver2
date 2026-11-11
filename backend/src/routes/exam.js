@@ -2,11 +2,12 @@ const express = require('express');
 const router = express.Router();
 const examController = require('../controllers/examController');
 const authMiddleware = require('../middlewares/authMiddleware');
+const { optionalAuth } = require('../middlewares/authMiddleware');
 const roleGuard = require('../middlewares/roleGuard');
 
 // ─── Public read routes (used by student browse + faculty dropdowns) ──────────
 // These are prefixed /api/exams and accessible to all authenticated users
-router.get('/exams', authMiddleware, examController.listExams);
+router.get('/exams', optionalAuth, examController.listExams);
 router.get('/exams/:examId/editions', authMiddleware, examController.listEditions);
 router.get('/editions/:editionId/subjects', authMiddleware, examController.listSubjects);
 router.get('/subjects/:subjectId/topics', authMiddleware, examController.listTopics);

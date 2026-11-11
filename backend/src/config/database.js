@@ -38,6 +38,7 @@ const AuditLog = require('../models/AuditLog')(sequelize);
 const Notification = require('../models/Notification')(sequelize);
 const EducatorApplication = require('../models/EducatorApplication')(sequelize);
 const EducatorInvite = require('../models/EducatorInvite')(sequelize);
+const Institute = require('../models/Institute')(sequelize);
 
 // ─── Course & Faculty Associations ──────────────────────────────────────────
 User.hasMany(Course, { foreignKey: 'facultyId', as: 'managedCourses' });
@@ -185,6 +186,12 @@ StudentQuestionRecord.belongsTo(Question, { foreignKey: 'questionId', as: 'quest
 Quiz.hasMany(StudentQuestionRecord, { foreignKey: 'quizId', as: 'questionRecords', onDelete: 'SET NULL' });
 StudentQuestionRecord.belongsTo(Quiz, { foreignKey: 'quizId', as: 'quiz' });
 
+// ─── Institute Associations ──────────────────────────────────────────
+Institute.hasMany(User, { foreignKey: 'instituteId', as: 'members' });
+User.belongsTo(Institute, { foreignKey: 'instituteId', as: 'institute' });
+Institute.hasMany(Course, { foreignKey: 'instituteId', as: 'courses' });
+Course.belongsTo(Institute, { foreignKey: 'instituteId', as: 'institute' });
+
 module.exports = {
   sequelize,
   User,
@@ -209,5 +216,6 @@ module.exports = {
   AuditLog,
   Notification,
   EducatorApplication,
-  EducatorInvite
+  EducatorInvite,
+  Institute
 };

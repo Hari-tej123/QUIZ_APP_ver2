@@ -65,7 +65,7 @@ test('Google login verifies identity and creates a student session', async () =>
       cookies: { googleOAuthState: 'valid-state' },
       query: { state: 'valid-state', code: 'oauth-code' }
     });
-    assert.equal(response.redirectTo, 'http://localhost:5173/dashboard');
+    assert.equal(response.redirectTo, 'http://localhost:5173/register?google=complete-profile');
     assert.ok(response.cookies.session);
     assert.ok(response.cookies.csrfToken);
   } finally {

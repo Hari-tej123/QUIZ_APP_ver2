@@ -11,7 +11,8 @@ const {
   Subtopic,
   Quiz,
   Question,
-  UserExamPreference
+  UserExamPreference,
+  Institute
 } = require('../config/database');
 
 async function seed() {
@@ -19,6 +20,59 @@ async function seed() {
   const now = new Date();
   const defaultPasswordHash = await bcrypt.hash('password123', 10);
   const adminPasswordHash = await bcrypt.hash('AdminSecurePass2026!', 10);
+
+  // 0. Seed Sample Institutes
+  const instituteDefs = [
+    {
+      id: 'inst-mit-001',
+      name: 'MIT College of Engineering',
+      code: 'MIT',
+      city: 'Pune',
+      state: 'Maharashtra',
+      status: 'active'
+    },
+    {
+      id: 'inst-iit-001',
+      name: 'Indian Institute of Technology Bombay',
+      code: 'IITB',
+      city: 'Mumbai',
+      state: 'Maharashtra',
+      status: 'active'
+    },
+    {
+      id: 'inst-bits-001',
+      name: 'BITS Pilani',
+      code: 'BITS',
+      city: 'Pilani',
+      state: 'Rajasthan',
+      status: 'active'
+    },
+    {
+      id: 'inst-delhi-001',
+      name: 'Delhi Technological University',
+      code: 'DTU',
+      city: 'New Delhi',
+      state: 'Delhi',
+      status: 'active'
+    },
+    {
+      id: 'inst-stanford-001',
+      name: 'Stanford University',
+      code: 'STANFORD',
+      city: 'Stanford',
+      state: 'California',
+      status: 'active'
+    }
+  ];
+
+  for (const inst of instituteDefs) {
+    const [row] = await Institute.findOrCreate({
+      where: { id: inst.id },
+      defaults: inst
+    });
+    await row.update(inst);
+  }
+  console.log(`✓ Active institutes configured: ${instituteDefs.length}`);
 
   // 1. Ensure Exams exist: GATE, JEE Main, NEET, UPSC Civil Services, CAT
   const examDefs = [
@@ -192,6 +246,7 @@ async function seed() {
       email: 'student1@quizapp.com',
       password: defaultPasswordHash,
       role: 'STUDENT',
+      approvalStatus: 'APPROVED',
       instituteId: 'inst-mit-001',
       status: 'active'
     }
@@ -199,6 +254,7 @@ async function seed() {
   await student.update({
     password: defaultPasswordHash,
     role: 'STUDENT',
+    approvalStatus: 'APPROVED',
     instituteId: 'inst-mit-001'
   });
 
@@ -212,6 +268,7 @@ async function seed() {
       password: defaultPasswordHash,
       role: 'EDUCATOR',
       educatorType: 'COMPETITIVE',
+      approvalStatus: 'APPROVED',
       instituteId: null,
       contributorStatus: 'approved',
       status: 'active'
@@ -221,6 +278,7 @@ async function seed() {
     password: defaultPasswordHash,
     role: 'EDUCATOR',
     educatorType: 'COMPETITIVE',
+    approvalStatus: 'APPROVED',
     instituteId: null,
     contributorStatus: 'approved'
   });
@@ -235,8 +293,11 @@ async function seed() {
       password: defaultPasswordHash,
       role: 'EDUCATOR',
       educatorType: 'BOTH',
+      approvalStatus: 'APPROVED',
       instituteId: 'inst-mit-001',
       department: 'Computer Science & Engineering',
+      designation: 'Associate Professor',
+      employeeId: 'EMP-MIT-8841',
       subject: 'Algorithms & Data Structures',
       status: 'active'
     }
@@ -245,8 +306,11 @@ async function seed() {
     password: defaultPasswordHash,
     role: 'EDUCATOR',
     educatorType: 'BOTH',
+    approvalStatus: 'APPROVED',
     instituteId: 'inst-mit-001',
     department: 'Computer Science & Engineering',
+    designation: 'Associate Professor',
+    employeeId: 'EMP-MIT-8841',
     subject: 'Algorithms & Data Structures'
   });
 
@@ -259,12 +323,14 @@ async function seed() {
       email: 'admin@quizapp.com',
       password: adminPasswordHash,
       role: 'ADMIN',
+      approvalStatus: 'APPROVED',
       status: 'active'
     }
   });
   await admin.update({
     password: adminPasswordHash,
-    role: 'ADMIN'
+    role: 'ADMIN',
+    approvalStatus: 'APPROVED'
   });
   console.log('✓ Demo users verified with valid passwords and roles.');
 

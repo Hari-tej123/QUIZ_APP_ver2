@@ -246,9 +246,12 @@ export default function CreateQuiz() {
         showWarning(`${errors.length} rows had errors and were skipped.`);
       }
     } catch (err) {
-      showError(err.response?.data?.message || 'Failed to parse template file.');
-      if (err.response?.data?.errors) {
-        setBulkErrors(err.response.data.errors);
+      const responseData = err.response?.data || err.response || {};
+      const errorMessage = responseData.message || err.message || 'Failed to parse template file.';
+      showError(errorMessage);
+      const errors = responseData.errors || err.response?.errors || [];
+      if (Array.isArray(errors) && errors.length > 0) {
+        setBulkErrors(errors);
       }
     } finally {
       setBulkParsing(false);
@@ -312,12 +315,12 @@ export default function CreateQuiz() {
         navigate('/contributor/quizzes');
       }
     } catch (err) {
-      const responseData = err.response?.data;
+      const responseData = err.response?.data || err.response || {};
       if (responseData?.errors && Array.isArray(responseData.errors) && responseData.errors.length > 0) {
         const errorMessages = responseData.errors.map(e => `${e.field ? `${e.field}: ` : ''}${e.message}`);
         showError(`Validation failed: ${errorMessages.slice(0, 3).join('; ')}`);
       } else {
-        showError(responseData?.message || 'Failed to submit quiz.');
+        showError(responseData?.message || err.message || 'Failed to submit quiz.');
       }
     } finally {
       setLoading(false);

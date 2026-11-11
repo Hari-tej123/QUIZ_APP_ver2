@@ -2,7 +2,7 @@ const jwt = require('jsonwebtoken');
 const { User } = require('../config/database');
 const { UnauthorizedError } = require('../utils/errors');
 
-module.exports = async (req, res, next) => {
+const authMiddleware = async (req, res, next) => {
   try {
     let token;
     if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
@@ -34,3 +34,26 @@ module.exports = async (req, res, next) => {
     next(err);
   }
 };
+
+const optionalAuth = async (req, res, next) => {
+  try {
+    let token;
+    if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+      token = req.headers.authorization.split(' ')[1];
+    }
+    if (!token && req.cookies) token = req.cookies.session;
+
+    if (token) {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const currentUser = await User.findByPk(decoded.id);
+      if (currentUser && currentUser.status !== 'inactive') {
+        req.user = currentUser;
+      }
+    }
+  } catch {}
+  next();
+};
+
+module.exports = authMiddleware;
+module.exports.authMiddleware = authMiddleware;
+module.exports.optionalAuth = optionalAuth;

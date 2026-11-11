@@ -47,6 +47,7 @@ router.get('/quizzes', contributorController.getMyQuizzes);
 router.post('/quizzes', validateContributorTrack, contributorController.createQuiz);
 router.put('/quizzes/:quizId', validateContributorTrack, quizWorkflowController.updateDraft);
 router.post('/quizzes/:quizId/submit', quizWorkflowController.submitForReview);
+router.post('/quizzes/:quizId/publish', quizWorkflowController.directPublish);
 router.post('/quizzes/:quizId/archive', quizWorkflowController.archive);
 router.post('/quizzes/bulk-upload', memoryUpload.single('file'), contributorController.bulkUploadQuestions);
 router.get('/quizzes/template', contributorController.getSampleTemplate);

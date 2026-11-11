@@ -163,7 +163,26 @@ exports.getHierarchyTree = async (req, res, next) => {
     });
 
     // 2. College track hierarchy: Courses -> Subtopics
+    // For faculty users, only show courses belonging to their institute (or courses they own).
+    // This prevents the 403 "cannot create or manage content for another institute" error
+    // that occurs when faculty from one institute selects a course from another institute.
+    const user = req.user;
+    const educatorType = user?.educatorType ? String(user.educatorType).toUpperCase() : null;
+    const isFaculty = user?.role === 'EDUCATOR' && (educatorType === 'COLLEGE' || educatorType === 'BOTH' || Boolean(user?.instituteId));
+
+    let courseWhere = {};
+    if (isFaculty && user.instituteId) {
+      // Only show courses from the faculty's own institute OR courses they own directly
+      courseWhere = {
+        [Op.or]: [
+          { instituteId: user.instituteId },
+          { facultyId: user.id }
+        ]
+      };
+    }
+
     const courses = await Course.findAll({
+      where: courseWhere,
       include: [
         {
           model: Subtopic,
@@ -211,6 +230,9 @@ exports.getMyQuizzes = async (req, res, next) => {
 // ─── Create Quiz Submission ─────────────────────────────────────────────────
 exports.createQuiz = async (req, res, next) => {
   try {
+    if (req.user?.approvalStatus === 'PENDING' && req.user?.contributorStatus !== 'approved') {
+      return next(new ForbiddenError('Awaiting approval. Your faculty account is pending verification by an administrator.'));
+    }
     const contributorId = req.user.id;
     const user = await User.findByPk(contributorId);
     const parsed = quizDraftSchema.safeParse(req.body);
@@ -346,9 +368,19 @@ exports.bulkUploadQuestions = async (req, res, next) => {
       return next(new BadRequestError('Please upload an Excel (.xlsx) or CSV file.'));
     }
 
-    const workbook = xlsx.read(req.file.buffer, { type: 'buffer' });
+    let workbook;
+    try {
+      workbook = xlsx.read(req.file.buffer, { type: 'buffer', cellDates: true });
+    } catch {
+      return next(new BadRequestError('Failed to parse spreadsheet. Please ensure the file is a valid .xlsx or .csv format.'));
+    }
+
     const sheetName = workbook.SheetNames[0];
-    const sheetData = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);
+    if (!sheetName) {
+      return next(new BadRequestError('The uploaded workbook contains no sheets.'));
+    }
+
+    const sheetData = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName], { defval: '', raw: false });
 
     if (!sheetData || sheetData.length === 0) {
       return next(new BadRequestError('The uploaded file is empty.'));
@@ -357,25 +389,67 @@ exports.bulkUploadQuestions = async (req, res, next) => {
     const parsedQuestions = [];
     const validationErrors = [];
 
+    // Helper to extract value using case-insensitive, alphanumeric-normalized key matching
+    const extractField = (normRow, ...candidateKeys) => {
+      for (const k of candidateKeys) {
+        if (normRow[k] !== undefined && normRow[k] !== null && String(normRow[k]).trim() !== '') {
+          return normRow[k];
+        }
+      }
+      return '';
+    };
+
     sheetData.forEach((row, index) => {
       const rowNum = index + 2; // header is row 1
-      const qText = row['Question'] || row['question'] || row['QuestionText'] || row['questionText'];
-      const opA = row['Option A'] || row['optionA'] || row['OptionA'] || row['A'];
-      const opB = row['Option B'] || row['optionB'] || row['OptionB'] || row['B'];
-      const opC = row['Option C'] || row['optionC'] || row['OptionC'] || row['C'];
-      const opD = row['Option D'] || row['optionD'] || row['OptionD'] || row['D'];
-      let correct = row['Correct Answer'] || row['correctOption'] || row['Correct'] || row['Answer'];
-      const explanation = row['Explanation'] || row['explanation'] || '';
-      const difficulty = (row['Difficulty'] || row['difficulty'] || 'medium').toLowerCase();
-      const tags = row['Tags'] || row['tags'] || '';
-      const marks = row['Marks'] || row['marks'] || 1;
 
-      if (correct) {
-        correct = String(correct).trim().toUpperCase();
+      // Build normalized key map
+      const normRow = {};
+      for (const [key, val] of Object.entries(row)) {
+        const cleanKey = String(key).toLowerCase().replace(/[^a-z0-9]/g, '');
+        normRow[cleanKey] = val;
       }
 
-      if (!qText || !opA || !opB || !opC || !opD || !['A', 'B', 'C', 'D'].includes(correct)) {
-        validationErrors.push(`Row ${rowNum}: Missing required fields or invalid correct answer (must be A, B, C, or D).`);
+      const qText = extractField(normRow, 'question', 'questiontext', 'prompt', 'qtext', 'title');
+      const opA = extractField(normRow, 'optiona', 'opta', 'a', 'option1', 'opt1', 'choicea', 'choice1');
+      const opB = extractField(normRow, 'optionb', 'optb', 'b', 'option2', 'opt2', 'choiceb', 'choice2');
+      const opC = extractField(normRow, 'optionc', 'optc', 'c', 'option3', 'opt3', 'choicec', 'choice3');
+      const opD = extractField(normRow, 'optiond', 'optd', 'd', 'option4', 'opt4', 'choiced', 'choice4');
+      const rawCorrect = extractField(normRow, 'correctanswer', 'correctoption', 'correct', 'answer', 'correctopt', 'ans', 'key');
+      const explanation = extractField(normRow, 'explanation', 'explain', 'solution', 'rationale', 'reason');
+      const rawDiff = extractField(normRow, 'difficulty', 'diff', 'level');
+      const rawTags = extractField(normRow, 'tags', 'tag', 'topic', 'topics', 'keywords', 'category');
+      const rawMarks = extractField(normRow, 'marks', 'mark', 'points', 'point', 'score');
+
+      // Skip entirely empty rows (e.g. blank trailing rows in Excel)
+      const hasAnyContent = qText !== '' || opA !== '' || opB !== '' || opC !== '' || opD !== '' || rawCorrect !== '';
+      if (!hasAnyContent) {
+        return;
+      }
+
+      // Normalize correct option: support "A", "Option A", "Opt A", "(A)", "A.", "1", "2", "3", "4", or matching option text
+      let correct = String(rawCorrect).trim().toUpperCase();
+      if (/^OPTION\s*([A-D])$/i.test(correct)) correct = correct.replace(/^OPTION\s*/i, '');
+      if (/^OPT\s*([A-D])$/i.test(correct)) correct = correct.replace(/^OPT\s*/i, '');
+      if (/^\(?([A-D])\)?\.?$/i.test(correct)) correct = correct.replace(/[().]/g, '');
+      if (correct === '1') correct = 'A';
+      if (correct === '2') correct = 'B';
+      if (correct === '3') correct = 'C';
+      if (correct === '4') correct = 'D';
+
+      if (!['A', 'B', 'C', 'D'].includes(correct)) {
+        const normRaw = String(rawCorrect).trim().toLowerCase();
+        if (normRaw && normRaw === String(opA).trim().toLowerCase()) correct = 'A';
+        else if (normRaw && normRaw === String(opB).trim().toLowerCase()) correct = 'B';
+        else if (normRaw && normRaw === String(opC).trim().toLowerCase()) correct = 'C';
+        else if (normRaw && normRaw === String(opD).trim().toLowerCase()) correct = 'D';
+      }
+
+      const diffLower = String(rawDiff).trim().toLowerCase();
+      const difficulty = ['easy', 'medium', 'hard'].includes(diffLower) ? diffLower : 'medium';
+      const marks = Number(rawMarks) > 0 ? Math.round(Number(rawMarks)) : 1;
+
+      if (!qText || opA === '' || opB === '' || opC === '' || opD === '' || !['A', 'B', 'C', 'D'].includes(correct)) {
+        validationErrors.push(`Row ${rowNum}: Missing required fields (question text, options A-D) or invalid correct answer (must be A, B, C, or D).`);
       } else {
         parsedQuestions.push({
           questionText: String(qText).trim(),
@@ -385,9 +459,9 @@ exports.bulkUploadQuestions = async (req, res, next) => {
           optionD: String(opD).trim(),
           correctOption: correct,
           explanation: String(explanation).trim(),
-          difficulty: ['easy', 'medium', 'hard'].includes(difficulty) ? difficulty : 'medium',
-          tags: String(tags).trim(),
-          marks: Number(marks) || 1
+          difficulty,
+          tags: String(rawTags).trim(),
+          marks
         });
       }
     });

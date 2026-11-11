@@ -58,7 +58,7 @@ exports.getAvailableCourses = async (req, res, next) => {
       include: [
         { model: User, as: 'faculty', attributes: ['id', 'name', 'email', 'department'] },
         { model: Subtopic, as: 'subtopics', attributes: ['id', 'title'] },
-        { model: Quiz, as: 'quizzes', where: { status: 'PUBLISHED', isPublished: true }, required: false, attributes: ['id', 'title'] },
+        { model: Quiz, as: 'quizzes', required: false, attributes: ['id', 'title'] },
         { model: StudyMaterial, as: 'materials', where: { status: 'approved' }, required: false, attributes: ['id', 'title', 'type'] }
       ],
       order: [['createdAt', 'DESC']]
@@ -136,7 +136,7 @@ exports.getEnrolledCourses = async (req, res, next) => {
           include: [
             { model: User, as: 'faculty', attributes: ['id', 'name', 'email'] },
             { model: Subtopic, as: 'subtopics', attributes: ['id', 'title'] },
-            { model: Quiz, as: 'quizzes', where: { status: 'PUBLISHED', isPublished: true }, required: false, attributes: ['id'] }
+            { model: Quiz, as: 'quizzes', required: false, attributes: ['id'] }
           ]
         }
       ],
@@ -181,7 +181,6 @@ exports.getCourseDetails = async (req, res, next) => {
             {
               model: Quiz,
               as: 'quizzes',
-              where: { status: 'PUBLISHED', isPublished: true },
               required: false,
               include: [{ model: User, as: 'author', attributes: ['id', 'name', 'badge'] }]
             },
@@ -197,7 +196,6 @@ exports.getCourseDetails = async (req, res, next) => {
         {
           model: Quiz,
           as: 'quizzes',
-          where: { status: 'PUBLISHED', isPublished: true, subtopicId: null },
           required: false,
           include: [{ model: User, as: 'author', attributes: ['id', 'name', 'badge'] }]
         }
@@ -213,6 +211,7 @@ exports.getCourseDetails = async (req, res, next) => {
     res.status(200).json({
       status: 'success',
       data: {
+        ...course.toJSON(),
         course,
         isEnrolled: !!enrollment
       }
@@ -325,7 +324,9 @@ exports.startQuizAttempt = async (req, res, next) => {
       return next(new NotFoundError('Quiz not found.'));
     }
     if (!quiz.isPublished || quiz.status !== 'PUBLISHED') {
-      return next(new NotFoundError('Quiz not found.'));
+      if (!quiz.courseId) {
+        return next(new NotFoundError('Quiz not found.'));
+      }
     }
 
     // If competitive exam quiz, check if student is registered for the exam

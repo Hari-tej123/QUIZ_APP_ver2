@@ -3,9 +3,9 @@ const bcrypt = require('bcryptjs');
 const { randomBytes, timingSafeEqual } = require('crypto');
 const { OAuth2Client } = require('google-auth-library');
 const { Op } = require('sequelize');
-const { User } = require('../config/database');
+const { User, Institute, Exam, UserExamPreference } = require('../config/database');
 const educatorController = require('./educatorController');
-const { BadRequestError, UnauthorizedError, ConflictError } = require('../utils/errors');
+const { BadRequestError, UnauthorizedError, ConflictError, NotFoundError } = require('../utils/errors');
 
 const SESSION_MAX_AGE = 2 * 60 * 60 * 1000;
 const cookieOptions = (httpOnly = true) => ({
@@ -23,6 +23,10 @@ const publicUser = (user) => ({
   role: user.role,
   educatorType: user.educatorType,
   instituteId: user.instituteId,
+  approvalStatus: user.approvalStatus || 'APPROVED',
+  needsRoleSelection: Boolean(user.needsRoleSelection),
+  designation: user.designation || null,
+  employeeId: user.employeeId || null,
   status: user.status,
   emailVerified: user.emailVerified,
   contributorStatus: user.contributorStatus,
@@ -45,7 +49,8 @@ const startSession = (res, user) => {
       id: user.id,
       role: user.role,
       educatorType: user.educatorType || null,
-      instituteId: user.instituteId || null
+      instituteId: user.instituteId || null,
+      approvalStatus: user.approvalStatus || 'APPROVED'
     },
     process.env.JWT_SECRET,
     { expiresIn: process.env.JWT_EXPIRES_IN || '2h' }
@@ -68,10 +73,35 @@ const googleClient = () => {
 
 exports.register = async (req, res, next) => {
   try {
-    const { name, email, password, rollNumber, inviteToken } = req.body;
+    const {
+      name,
+      email,
+      password,
+      role,
+      instituteId,
+      institute,
+      department,
+      designation,
+      employeeId,
+      registeredExams,
+      rollNumber,
+      inviteToken
+    } = req.body;
+
+    // Determine normalized role
+    const rawRole = String(role || 'student').trim().toLowerCase();
+
+    // Prevent role escalation: admin and educator cannot be claimed via registration
+    if (['admin', 'educator'].includes(rawRole)) {
+      return next(new BadRequestError("Role escalation forbidden. Registration only allows 'student' or 'faculty'."));
+    }
+
+    if (!['student', 'faculty'].includes(rawRole)) {
+      return next(new BadRequestError("Invalid role. Registration allows only 'student' or 'faculty'."));
+    }
 
     if (!name || !email || !password || password.length < 8 || password.length > 128) {
-      return next(new BadRequestError('Please provide name, email, and password.'));
+      return next(new BadRequestError('Please provide name, email, and password. Password must be 8-128 characters.'));
     }
 
     // Check if email already exists
@@ -79,6 +109,39 @@ exports.register = async (req, res, next) => {
     const existingUser = await User.findOne({ where: { email: { [Op.iLike]: normalizedEmail } } });
     if (existingUser) {
       return next(new ConflictError('Email already registered.'));
+    }
+
+    const targetInstituteId = instituteId || institute || null;
+
+    // Faculty validations
+    if (rawRole === 'faculty') {
+      if (!targetInstituteId) {
+        return res.status(400).json({
+          status: 'fail',
+          message: 'Institute is required for faculty registration.',
+          errors: [{ field: 'instituteId', message: 'Institute is required for faculty registration.' }]
+        });
+      }
+      const inst = await Institute.findByPk(targetInstituteId);
+      if (!inst) {
+        return res.status(400).json({
+          status: 'fail',
+          message: 'Selected institute not found.',
+          errors: [{ field: 'instituteId', message: 'Selected institute not found.' }]
+        });
+      }
+    } else {
+      // Student institute validation if provided
+      if (targetInstituteId) {
+        const inst = await Institute.findByPk(targetInstituteId);
+        if (!inst) {
+          return res.status(400).json({
+            status: 'fail',
+            message: 'Selected institute not found.',
+            errors: [{ field: 'instituteId', message: 'Selected institute not found.' }]
+          });
+        }
+      }
     }
 
     // Check if roll number already exists for student
@@ -92,19 +155,52 @@ exports.register = async (req, res, next) => {
     const hashedPassword = await bcrypt.hash(password, 10);
     const invite = await educatorController.consumeInvite(inviteToken, normalizedEmail);
 
-    const newUser = await User.create({
-      name,
-      email: normalizedEmail,
-      password: hashedPassword,
-      role: invite ? 'EDUCATOR' : 'STUDENT',
-      educatorType: invite?.educatorType || null,
-      emailVerified: false,
-      rollNumber: rollNumber || null,
-      earningsBalance: 0.0,
-      totalEarned: 0.0,
-      mustChangePassword: false,
-      status: 'active'
-    });
+    let newUser;
+    if (rawRole === 'faculty') {
+      newUser = await User.create({
+        name: name.trim(),
+        email: normalizedEmail,
+        password: hashedPassword,
+        role: 'EDUCATOR',
+        educatorType: 'BOTH',
+        instituteId: targetInstituteId,
+        department: department ? department.trim() : null,
+        designation: designation ? designation.trim() : null,
+        employeeId: employeeId ? employeeId.trim() : null,
+        approvalStatus: 'PENDING',
+        emailVerified: false,
+        status: 'active'
+      });
+    } else {
+      newUser = await User.create({
+        name: name.trim(),
+        email: normalizedEmail,
+        password: hashedPassword,
+        role: invite ? 'EDUCATOR' : 'STUDENT',
+        educatorType: invite?.educatorType || null,
+        instituteId: targetInstituteId,
+        approvalStatus: 'APPROVED',
+        emailVerified: false,
+        rollNumber: rollNumber || null,
+        earningsBalance: 0.0,
+        totalEarned: 0.0,
+        mustChangePassword: false,
+        status: 'active'
+      });
+
+      if (Array.isArray(registeredExams) && registeredExams.length > 0) {
+        const validExams = await Exam.findAll({
+          where: { id: registeredExams, status: 'active' }
+        });
+        for (const exam of validExams) {
+          await UserExamPreference.findOrCreate({
+            where: { userId: newUser.id, examId: exam.id },
+            defaults: { userId: newUser.id, examId: exam.id }
+          });
+        }
+      }
+    }
+
     if (invite) {
       invite.acceptedAt = new Date();
       await invite.save();
@@ -214,7 +310,9 @@ exports.googleCallback = async (req, res, next) => {
         educatorType: invite?.educatorType || null,
         status: 'active',
         googleId: profile.sub,
-        emailVerified: true
+        emailVerified: true,
+        approvalStatus: 'APPROVED',
+        needsRoleSelection: !invite
       });
     } else {
       user.googleId = profile.sub;
@@ -231,7 +329,96 @@ exports.googleCallback = async (req, res, next) => {
     }
     if (user.status !== 'active') return next(new UnauthorizedError('This account is unavailable.'));
     startSession(res, user);
-    res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/dashboard`);
+
+    if (user.needsRoleSelection) {
+      return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/register?google=complete-profile`);
+    }
+
+    const targetPath = user.role === 'ADMIN' ? '/admin' : (user.role === 'EDUCATOR' ? '/contributor' : '/student');
+    res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}${targetPath}`);
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.completeProfile = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const { role, instituteId, department, designation, employeeId, registeredExams } = req.body;
+    const rawRole = String(role || '').toLowerCase();
+
+    if (!['student', 'faculty'].includes(rawRole)) {
+      return res.status(400).json({
+        status: 'fail',
+        message: "Role must be 'student' or 'faculty'."
+      });
+    }
+
+    const user = await User.findByPk(userId);
+    if (!user) return next(new NotFoundError('User not found.'));
+
+    if (rawRole === 'faculty') {
+      if (!instituteId) {
+        return res.status(400).json({
+          status: 'fail',
+          message: 'Institute is required for faculty registration.',
+          errors: [{ field: 'instituteId', message: 'Institute is required for faculty.' }]
+        });
+      }
+      const inst = await Institute.findByPk(instituteId);
+      if (!inst) {
+        return res.status(400).json({
+          status: 'fail',
+          message: 'Selected institute not found.',
+          errors: [{ field: 'instituteId', message: 'Selected institute not found.' }]
+        });
+      }
+
+      user.role = 'EDUCATOR';
+      user.educatorType = 'BOTH';
+      user.instituteId = instituteId;
+      user.department = department || null;
+      user.designation = designation || null;
+      user.employeeId = employeeId || null;
+      user.approvalStatus = 'PENDING';
+      user.needsRoleSelection = false;
+      await user.save();
+    } else {
+      if (instituteId) {
+        const inst = await Institute.findByPk(instituteId);
+        if (!inst) {
+          return res.status(400).json({
+            status: 'fail',
+            message: 'Selected institute not found.',
+            errors: [{ field: 'instituteId', message: 'Selected institute not found.' }]
+          });
+        }
+        user.instituteId = instituteId;
+      }
+      user.role = 'STUDENT';
+      user.approvalStatus = 'APPROVED';
+      user.needsRoleSelection = false;
+      await user.save();
+
+      if (Array.isArray(registeredExams) && registeredExams.length > 0) {
+        const validExams = await Exam.findAll({
+          where: { id: registeredExams, status: 'active' }
+        });
+        for (const exam of validExams) {
+          await UserExamPreference.findOrCreate({
+            where: { userId: user.id, examId: exam.id },
+            defaults: { userId: user.id, examId: exam.id }
+          });
+        }
+      }
+    }
+
+    startSession(res, user);
+    res.status(200).json({
+      status: 'success',
+      message: 'Profile completed successfully.',
+      user: publicUser(user)
+    });
   } catch (err) {
     next(err);
   }

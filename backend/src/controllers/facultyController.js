@@ -16,7 +16,8 @@ exports.createCourse = async (req, res, next) => {
       title,
       description,
       subject,
-      facultyId: req.user.id
+      facultyId: req.user.id,
+      instituteId: req.user.instituteId || null  // inherit faculty's institute so institute scoping works
     });
 
     res.status(201).json({

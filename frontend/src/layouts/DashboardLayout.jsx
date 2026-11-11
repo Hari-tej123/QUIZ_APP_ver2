@@ -394,6 +394,17 @@ export default function DashboardLayout({ children }) {
 
         {/* Dashboard Content */}
         <main className="flex-1 overflow-y-auto px-6 py-6 md:px-8 bg-neutral-50">
+          {user?.approvalStatus === 'PENDING' && (
+            <div className="mb-6 rounded-2xl border border-amber-300 bg-amber-50 p-4 shadow-xs flex items-start gap-3 animate-slide-up">
+              <span className="text-xl">⚠️</span>
+              <div>
+                <h4 className="text-sm font-bold text-amber-900 font-display">Faculty Account Verification Pending</h4>
+                <p className="text-xs text-amber-800 mt-0.5 leading-relaxed">
+                  Your faculty account is awaiting admin verification. You can explore the platform, but creating or publishing courses, quizzes, and questions will remain disabled until an administrator verifies your affiliation.
+                </p>
+              </div>
+            </div>
+          )}
           {children}
         </main>
       </div>

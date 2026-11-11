@@ -34,7 +34,7 @@ class ApiClient {
     if (!response.ok) {
       const error = new Error(data.message || 'Something went wrong');
       error.status = response.status;
-      error.response = data;
+      error.response = { data, ...data, status: response.status };
       throw error;
     }
 

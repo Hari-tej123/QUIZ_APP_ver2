@@ -118,6 +118,8 @@ exports.decideRequest = async (req, res, next) => {
 
     if (parsed.data.status === 'approved') {
       user.role = request.requestedRole;
+      user.approvalStatus = 'APPROVED';
+      user.contributorStatus = 'approved';
       await user.save({ transaction });
     }
     const message = parsed.data.status === 'approved'
@@ -195,6 +197,10 @@ exports.updateUserAccess = async (req, res, next) => {
     const previous = { role: target.role, educatorType: target.educatorType, status: target.status };
     target.role = parsed.data.role;
     target.educatorType = parsed.data.role === 'EDUCATOR' ? (parsed.data.educatorType || target.educatorType) : null;
+    if (parsed.data.role === 'EDUCATOR') {
+      if (target.approvalStatus === 'PENDING') target.approvalStatus = 'APPROVED';
+      if (!target.contributorStatus) target.contributorStatus = 'approved';
+    }
     if (parsed.data.status) target.status = parsed.data.status;
     await target.save({ transaction });
     await AuditLog.create({

@@ -12,6 +12,8 @@ const questionRoutes = require('./questions');
 const educatorRoutes = require('./educator');
 const attemptRoutes = require('./attempts');
 
+const { Institute } = require('../config/database');
+
 // Healthcheck route
 router.get('/health', (req, res) => {
   res.status(200).json({
@@ -19,6 +21,23 @@ router.get('/health', (req, res) => {
     message: 'Online Quiz API is running smoothly.',
     timestamp: new Date()
   });
+});
+
+// Public Institutes list
+router.get('/institutes', async (req, res, next) => {
+  try {
+    const institutes = await Institute.findAll({
+      where: { status: 'active' },
+      order: [['name', 'ASC']]
+    });
+    res.status(200).json({
+      status: 'success',
+      results: institutes.length,
+      data: institutes
+    });
+  } catch (err) {
+    next(err);
+  }
 });
 
 router.use('/auth', authRoutes);

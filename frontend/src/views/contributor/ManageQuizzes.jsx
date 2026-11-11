@@ -154,7 +154,11 @@ export default function ManageQuizzes() {
                     <Eye className="w-3.5 h-3.5 mr-1" />
                     Preview Questions
                   </Button>
-                  {['DRAFT', 'REJECTED'].includes(quiz.status) && <Link to={`/contributor/quizzes/create?edit=${quiz.id}`}><Button variant="secondary" size="xs" className="ml-2">Edit & Resubmit</Button></Link>}
+                  {quiz.status === 'DRAFT' && (
+  <><Link to={`/contributor/quizzes/create?edit=${quiz.id}`}><Button variant="secondary" size="xs" className="ml-2">Edit & Resubmit</Button></Link>
+  <Button variant="secondary" size="xs" className="ml-2" onClick={async () => { try { await api.post(`/contributor/quizzes/${quiz.id}/publish`); await fetchQuizzes(); showSuccess('Quiz published directly.'); } catch { showError('Could not publish quiz.'); } }}>Publish Directly</Button></>
+)}
+{quiz.status === 'REJECTED' && <Link to={`/contributor/quizzes/create?edit=${quiz.id}`}><Button variant="secondary" size="xs" className="ml-2">Edit & Resubmit</Button></Link>}
                   {quiz.status === 'PUBLISHED' && <Button variant="secondary" size="xs" className="ml-2" onClick={async () => { try { await api.post(`/contributor/quizzes/${quiz.id}/archive`); await fetchQuizzes(); } catch { showError('Could not archive this quiz.'); } }}>Archive</Button>}
                 </div>
               </Card>
